@@ -580,7 +580,8 @@ class EstilosGUI:
         }}
         QFrame#cardKanban:hover {{
             background-color: {p['bg_card_hover']};
-            border: 1px solid {p['destaque']};
+            border: 1px solid {p['branco']};
+            box-shadow: 0 0 12px rgba(229, 9, 20, 0.35);
         }}
         QPushButton {{
             border-radius: 6px;
@@ -622,9 +623,9 @@ class EstilosGUI:
         }}
         QLabel#tituloCard {{
             color: {p['branco']};
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 900;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }}
         QLabel#linhaInfo {{
             color: {p['texto_sec']};
@@ -687,8 +688,8 @@ class CardKanban(QFrame):
         self.lbl_titulo.setObjectName("tituloCard")
         self.lbl_titulo.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.lbl_titulo.setWordWrap(True)
-        self.lbl_titulo.setMinimumHeight(48)
-        self.lbl_titulo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.lbl_titulo.setMinimumHeight(56)
+        self.lbl_titulo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
 
         self.lbl_ultima_exec = QLabel("ÚLTIMA EXEC: -")
         self.lbl_ultima_exec.setObjectName("linhaInfo")
@@ -2092,7 +2093,7 @@ class JanelaServidor(QMainWindow):
             self.hide()
             self.tray_icon.showMessage(
                 "Servidor de Automações",
-                "Continuando em execução na bandeja.",
+                "Servidor rodando em segundo plano.",
                 QSystemTrayIcon.Information,
                 3000,
             )
@@ -2113,31 +2114,7 @@ class JanelaServidor(QMainWindow):
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(8)
 
-        topo = QHBoxLayout()
-        self.lbl_status = QLabel("Aguardando dados...")
-        self.lbl_status.setStyleSheet("font-size: 12px; color: #888;")
-
-        self.chk_auto_sync = QCheckBox("ATUALIZAÇÃO AUTOMÁTICA: ATIVA")
-        self.chk_auto_sync.setCursor(Qt.PointingHandCursor)
-        self.chk_auto_sync.setChecked(True)
-        self.chk_auto_sync.toggled.connect(self._on_toggle_auto_sync)
-
-        btn_force = QPushButton("FORÇAR ATUALIZAÇÃO")
-        btn_force.setStyleSheet(EstilosGUI.estilo_botao_topo())
-        btn_force.setCursor(Qt.PointingHandCursor)
-        btn_force.clicked.connect(self._forcar_update)
-
-        self.input_busca = QLineEdit()
-        self.input_busca.setPlaceholderText("Buscar automação...")
-        self.input_busca.setClearButtonEnabled(True)
-        self.input_busca.setFixedWidth(260)
-        self.input_busca.textChanged.connect(self._on_busca_text_changed)
-
-        topo.addWidget(self.lbl_status)
-        topo.addStretch(1)
-        topo.addWidget(self.input_busca)
-        topo.addWidget(self.chk_auto_sync)
-        topo.addWidget(btn_force)
+        topo = self._criar_topo()
 
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet(
@@ -2174,6 +2151,59 @@ class JanelaServidor(QMainWindow):
 
         # Health bar no rodapé
         self._setup_healthbar()
+
+    def _criar_topo(self):
+        topo = QHBoxLayout()
+        self.lbl_status = QLabel("Aguardando dados...")
+        self.lbl_status.setStyleSheet("font-size: 12px; color: #888;")
+
+        self.chk_auto_sync = QCheckBox("ATUALIZAÇÃO AUTOMÁTICA: ATIVA")
+        self.chk_auto_sync.setCursor(Qt.PointingHandCursor)
+        self.chk_auto_sync.setChecked(True)
+        self.chk_auto_sync.toggled.connect(self._on_toggle_auto_sync)
+
+        btn_force = QPushButton("FORÇAR ATUALIZAÇÃO")
+        btn_force.setStyleSheet(EstilosGUI.estilo_botao_topo())
+        btn_force.setCursor(Qt.PointingHandCursor)
+        btn_force.clicked.connect(self._forcar_update)
+
+        self.input_busca = self._criar_input_busca()
+
+        topo.addWidget(self.lbl_status)
+        topo.addStretch(1)
+        topo.addWidget(self.input_busca)
+        topo.addWidget(self.chk_auto_sync)
+        topo.addWidget(btn_force)
+
+        return topo
+
+    def _criar_input_busca(self):
+        p = EstilosGUI.obter_paleta()
+        barra = QLineEdit()
+        barra.setPlaceholderText("Buscar automação...")
+        barra.setClearButtonEnabled(True)
+        barra.setFixedWidth(280)
+        barra.setStyleSheet(
+            f"""
+            QLineEdit {{
+                background-color: {p['bg_card']};
+                border: 1px solid {p['borda_suave']};
+                border-radius: 6px;
+                padding: 8px 12px;
+                color: {p['branco']};
+                font-size: 13px;
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {p['destaque']};
+                box-shadow: 0 0 8px rgba(229, 9, 20, 0.35);
+            }}
+            QLineEdit::placeholder {{
+                color: {p['texto_sec']};
+            }}
+            """
+        )
+        barra.textChanged.connect(self._on_busca_text_changed)
+        return barra
 
     def _setup_healthbar(self):
         p = EstilosGUI.obter_paleta()
@@ -2684,7 +2714,10 @@ class JanelaServidor(QMainWindow):
             base = met.lower()
             info = self.infos.get(met, {})
             nome_auto = str(info.get("nome_automacao", "")).lower()
-            visivel = (termo in base) or (termo in nome_auto)
+            titulo_card = card.lbl_titulo.text().lower()
+            visivel = any(
+                termo in campo for campo in (base, nome_auto, titulo_card)
+            )
             card.setVisible(visivel)
 
     def _acao_executar(self, metodo):
