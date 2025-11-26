@@ -456,8 +456,8 @@ class EstilosGUI:
     def obter_paleta():
         return {
             "bg_fundo": "#141414",
-            "bg_card": "#181818",
-            "bg_card_hover": "#202020",
+            "bg_card": "#1F1F1F",
+            "bg_card_hover": "#252525",
             "destaque": "#E50914",
             "verde": "#46D369",
             "sucesso": "#46D369",
@@ -493,15 +493,20 @@ class EstilosGUI:
             color: {p['branco']};
         }}
         QLineEdit {{
-            background-color: #0F0F0F;
-            border-radius: 4px;
+            background-color: #1B1B1B;
+            border-radius: 6px;
             border: 1px solid {p['borda_suave']};
-            padding: 4px 8px;
+            padding: 6px 10px;
             color: {p['branco']};
-            font-size: 11px;
+            font-size: 12px;
+            selection-background-color: {p['destaque']};
+        }}
+        QLineEdit::placeholder {{
+            color: #777777;
         }}
         QLineEdit:focus {{
             border: 1px solid {p['destaque']};
+            background-color: #222222;
         }}
         QCheckBox {{
             spacing: 5px;
@@ -521,11 +526,15 @@ class EstilosGUI:
             background: {p['bg_fundo']};
             width: 8px;
             margin: 0px;
+            border-radius: 4px;
         }}
         QScrollBar::handle:vertical {{
-            background: {p['bg_card_hover']};
+            background: #3A3A3A;
             min-height: 20px;
             border-radius: 4px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: #4A4A4A;
         }}
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
             background: none;
@@ -535,11 +544,15 @@ class EstilosGUI:
             background: {p['bg_fundo']};
             height: 8px;
             margin: 0px;
+            border-radius: 4px;
         }}
         QScrollBar::handle:horizontal {{
-            background: {p['bg_card_hover']};
+            background: #3A3A3A;
             min-width: 20px;
             border-radius: 4px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: #4A4A4A;
         }}
         QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
             background: none;
@@ -577,11 +590,16 @@ class EstilosGUI:
             text-transform: uppercase;
         }}
         QPushButton#botaoExecutar {{
-            background-color: {p['branco']};
-            color: #000000;
+            background-color: {p['destaque']};
+            color: #FFFFFF;
+            border: none;
+            box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
+        }}
+        QPushButton#botaoExecutar:hover {{
+            background-color: #f6121d;
         }}
         QPushButton#botaoExecutar:disabled {{
-            background-color: #555;
+            background-color: #4A4A4A;
             color: #888;
         }}
         QPushButton#botaoParar {{
@@ -604,13 +622,13 @@ class EstilosGUI:
         }}
         QLabel#tituloCard {{
             color: {p['branco']};
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 900;
             letter-spacing: 1px;
         }}
         QLabel#linhaInfo {{
             color: {p['texto_sec']};
-            font-size: 12px;
+            font-size: 13px;
         }}
         QLabel#linhaDestaque {{
             color: {p['verde']};
@@ -663,31 +681,39 @@ class CardKanban(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(4)
+        layout.setSpacing(8)
 
         self.lbl_titulo = QLabel(str(titulo).upper())
         self.lbl_titulo.setObjectName("tituloCard")
         self.lbl_titulo.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.lbl_titulo.setWordWrap(True)
-        self.lbl_titulo.setMinimumHeight(40)
+        self.lbl_titulo.setMinimumHeight(48)
+        self.lbl_titulo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self.lbl_ultima_exec = QLabel("ÚLTIMA EXEC: -")
         self.lbl_ultima_exec.setObjectName("linhaInfo")
+        self.lbl_ultima_exec.setWordWrap(True)
 
         self.lbl_proxima_exec = QLabel("PRÓXIMA EXEC: -")
         self.lbl_proxima_exec.setObjectName("linhaInfo")
+        self.lbl_proxima_exec.setWordWrap(True)
 
         self.lbl_modo_exec = QLabel("MODO EXEC: -")
         self.lbl_modo_exec.setObjectName("linhaInfo")
+        self.lbl_modo_exec.setWordWrap(True)
 
         self.lbl_status_exec = QLabel("STATUS: -")
         self.lbl_status_exec.setObjectName("linhaInfo")
+        self.lbl_status_exec.setWordWrap(True)
 
         self.lbl_tempo_exec = QLabel("")
         self.lbl_tempo_exec.setObjectName("linhaDestaque")
+        self.lbl_tempo_exec.setWordWrap(True)
 
         self.lbl_area = QLabel("ÁREA: -")
         self.lbl_area.setObjectName("linhaInfo")
+        self.lbl_area.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.lbl_area.setWordWrap(True)
 
         self.btn_executar = QPushButton("EXECUTAR")
         self.btn_executar.setObjectName("botaoExecutar")
@@ -2031,8 +2057,8 @@ class JanelaServidor(QMainWindow):
         self.tray_icon.setIcon(icon)
         self.tray_icon.setToolTip("Servidor de Automações - C6")
         menu = QMenu()
-        act_show = QAction("Abrir", self)
-        act_quit = QAction("Sair", self)
+        act_show = QAction("Restaurar", self)
+        act_quit = QAction("Sair Definitivamente", self)
         act_show.triggered.connect(self._from_tray_show)
         act_quit.triggered.connect(self._sair_definitivo)
         menu.addAction(act_show)
