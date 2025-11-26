@@ -25,10 +25,10 @@ from PySide6.QtCore import Qt, QTimer, QSize, Signal, Slot, QThread
 from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon, QAction
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QGridLayout, QTabWidget, QLabel, QPushButton,
+    QScrollArea, QGridLayout, QLabel, QPushButton,
     QFrame, QSizePolicy, QDialog, QTextEdit, QCheckBox, QMessageBox,
     QListWidget, QListWidgetItem, QSplitter, QProgressBar,
-    QSystemTrayIcon, QMenu, QLineEdit
+    QSystemTrayIcon, QMenu, QLineEdit, QStackedWidget
 )
 import logging
 import traceback
@@ -455,18 +455,20 @@ class EstilosGUI:
     @staticmethod
     def obter_paleta():
         return {
-            "bg_fundo": "#141414",
-            "bg_card": "#1F1F1F",
-            "bg_card_hover": "#252525",
-            "destaque": "#E50914",
-            "verde": "#46D369",
-            "sucesso": "#46D369",
-            "amarelo": "#F5C518",
-            "aviso": "#FFCC00",
-            "azul": "#2F80ED",
-            "branco": "#FFFFFF",
-            "texto_sec": "#B3B3B3",
-            "borda_suave": "#333333",
+            "bg_fundo": "#0B1220",
+            "bg_card": "#111827",
+            "bg_card_hover": "#1B2435",
+            "destaque": "#E11D48",
+            "verde": "#34D399",
+            "sucesso": "#34D399",
+            "amarelo": "#F59E0B",
+            "aviso": "#FBBF24",
+            "azul": "#2563EB",
+            "branco": "#F8FAFC",
+            "texto_sec": "#94A3B8",
+            "borda_suave": "#1F2937",
+            "borda_suave_clara": "#2E3A4E",
+            "gradient_top": "linear-gradient(90deg, #0EA5E9, #E11D48)",
         }
 
     @staticmethod
@@ -478,6 +480,10 @@ class EstilosGUI:
             font-family: "Montserrat", "Segoe UI", sans-serif;
             color: {p['branco']};
         }}
+        QSplitter::handle {{
+            background-color: {p['borda_suave']};
+            width: 2px;
+        }}
         QScrollArea {{
             border: none;
             background-color: {p['bg_fundo']};
@@ -485,15 +491,11 @@ class EstilosGUI:
         QWidget#conteudoMonitor {{
             background-color: {p['bg_fundo']};
         }}
-        QTabWidget::pane {{
-            border: 0;
-            background: {p['bg_fundo']};
-        }}
         QLabel {{
             color: {p['branco']};
         }}
         QLineEdit {{
-            background-color: #1B1B1B;
+            background-color: {p['bg_card']};
             border-radius: 6px;
             border: 1px solid {p['borda_suave']};
             padding: 6px 10px;
@@ -559,9 +561,28 @@ class EstilosGUI:
         }}
         QListWidget {{
             background-color: {p['bg_card']};
-            border: 1px solid {p['borda_suave']};
-            border-radius: 4px;
-            padding: 5px;
+            border: 1px solid {p['borda_suave_clara']};
+            border-radius: 10px;
+            padding: 6px;
+        }}
+        QListWidget#listaNavegacao {{
+            background-color: {p['bg_card']};
+            border-radius: 12px;
+            border: 1px solid {p['borda_suave_clara']};
+        }}
+        QListWidget#listaNavegacao::item {{
+            padding: 12px 10px;
+            border-radius: 8px;
+            margin: 2px 4px;
+            color: {p['texto_sec']};
+            font-weight: 600;
+        }}
+        QListWidget#listaNavegacao::item:selected {{
+            background: {p['gradient_top']};
+            color: #0B1220;
+        }}
+        QListWidget#listaNavegacao::item:hover {{
+            background-color: {p['bg_card_hover']};
         }}
         QListWidget::item {{
             padding: 5px;
@@ -1297,6 +1318,12 @@ class AgendadorMetodos:
     def parar(self):
         self._stop = True
 
+    def atualizar_planilhas(self):
+        try:
+            self._recalcular_agenda()
+        except Exception as e:
+            self.logger.error("agendador_atualizar_planilhas_erro tipo=%s erro=%s", type(e).__name__, e)
+
     def _normalizar_horarios(self, texto: str):
         if not texto:
             return []
@@ -2010,6 +2037,11 @@ class JanelaServidor(QMainWindow):
         self.btn_parar_rodando: Optional[QPushButton] = None
         self.chk_auto_sync: Optional[QCheckBox] = None
         self.input_busca: Optional[QLineEdit] = None
+        self.nav_list: Optional[QListWidget] = None
+        self.stack: Optional[QStackedWidget] = None
+        self.navegacao_indices: Dict[str, int] = {}
+        self.card_secao: Dict[str, str] = {}
+        self._status_pre_busca = ""
 
         # health bar
         self.cpu_bar: Optional[QProgressBar] = None
@@ -2115,37 +2147,55 @@ class JanelaServidor(QMainWindow):
         self.main_layout.setSpacing(8)
 
         topo = self._criar_topo()
-
-        self.tabs = QTabWidget()
-        self.tabs.setStyleSheet(
-            """
-            QTabBar::tab {
-                background: transparent;
-                color: #888;
-                padding: 10px 20px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QTabBar::tab:selected {
-                color: #FFF;
-                border-bottom: 3px solid #E50914;
-            }
-            QTabBar::tab:hover {
-                color: #CCC;
-            }
+        p_topo = EstilosGUI.obter_paleta()
+        topo_frame = QFrame()
+        topo_frame.setObjectName("topoFrame")
+        topo_frame.setStyleSheet(
+            f"""
+            QFrame#topoFrame {{
+                background: {p_topo['gradient_top']};
+                border-radius: 14px;
+                padding: 14px 18px;
+                border: 1px solid {p_topo['borda_suave_clara']};
+            }}
+            QLabel#statusLabel {{
+                color: #0B1220;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                font-size: 13px;
+            }}
             """
         )
+        topo_frame.setLayout(topo)
+        self.nav_list = QListWidget()
+        self.nav_list.setObjectName("listaNavegacao")
+        self.nav_list.setFixedWidth(260)
+        self.nav_list.setSpacing(4)
+        self.nav_list.setAlternatingRowColors(False)
+        self.nav_list.currentRowChanged.connect(self._on_secao_alterada)
 
-        self.main_layout.addLayout(topo)
-        self.main_layout.addWidget(self.tabs, stretch=1)
+        self.stack = QStackedWidget()
+        self.stack.setObjectName("pilhaSecoes")
+
+        splitter = QSplitter()
+        splitter.setHandleWidth(2)
+        splitter.addWidget(self.nav_list)
+        splitter.addWidget(self.stack)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+
+        self.main_layout.addWidget(topo_frame)
+        self.main_layout.addWidget(splitter, stretch=1)
 
         # Painel de LOG fixo
+        p_log = EstilosGUI.obter_paleta()
         self.log_painel = QTextEdit()
         self.log_painel.setReadOnly(True)
         self.log_painel.setMaximumHeight(220)
         self.log_painel.setStyleSheet(
-            "background-color: #0E0E0E; color: #E0E0E0; "
-            "font-family: Consolas, monospace; font-size: 11px;"
+            f"background-color: {p_log['bg_card']}; color: {p_log['branco']}; "
+            f"font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 11px;"
+            f"border: 1px solid {p_log['borda_suave_clara']}; border-radius: 10px; padding: 8px;"
         )
         self.main_layout.addWidget(self.log_painel)
 
@@ -2154,8 +2204,11 @@ class JanelaServidor(QMainWindow):
 
     def _criar_topo(self):
         topo = QHBoxLayout()
+        topo.setContentsMargins(0, 0, 0, 0)
+        topo.setSpacing(12)
         self.lbl_status = QLabel("Aguardando dados...")
-        self.lbl_status.setStyleSheet("font-size: 12px; color: #888;")
+        self.lbl_status.setObjectName("statusLabel")
+        self.lbl_status.setStyleSheet("font-size: 13px;")
 
         self.chk_auto_sync = QCheckBox("ATUALIZAÇÃO AUTOMÁTICA: ATIVA")
         self.chk_auto_sync.setCursor(Qt.PointingHandCursor)
@@ -2250,6 +2303,22 @@ class JanelaServidor(QMainWindow):
         rodape.setLayout(hb)
         self.main_layout.addWidget(rodape)
 
+    def _on_secao_alterada(self, row: int):
+        if self.stack is None:
+            return
+        if 0 <= row < self.stack.count():
+            self.stack.setCurrentIndex(row)
+
+    def _ir_para_secao(self, secao: str):
+        if self.nav_list is None or self.stack is None:
+            return
+        for i in range(self.nav_list.count()):
+            item = self.nav_list.item(i)
+            if item and item.data(Qt.UserRole) == secao:
+                self.nav_list.setCurrentRow(i)
+                self.stack.setCurrentIndex(i)
+                return
+
     def _on_toggle_auto_sync(self, checked: bool):
         if checked:
             self.chk_auto_sync.setText("ATUALIZAÇÃO AUTOMÁTICA: ATIVA")
@@ -2320,7 +2389,7 @@ class JanelaServidor(QMainWindow):
 
         novo = self.descobridor.mapear_por_registro(self.df_reg)
         chaves_mudaram = set(novo.keys()) != set(self.mapeamento.keys())
-        abas_vazias = self.tabs.count() == 0
+        abas_vazias = self.stack is None or self.stack.count() == 0
         self.mapeamento = novo
 
         # recalcula resumos (sucesso/falha/outros) só quando planilhas mudam
@@ -2380,14 +2449,33 @@ class JanelaServidor(QMainWindow):
                 self._resumo_outros.append(item_txt)
 
     def _reconstruir_abas(self):
-        self.tabs.clear()
+        if self.nav_list is None or self.stack is None:
+            return
+
+        self.navegacao_indices = {}
+        self.card_secao = {}
         self.cards.clear()
         self.infos.clear()
         self.dashboard_boxes.clear()
         self.btn_parar_rodando = None
         self.lista_recursos_metodos = None
 
-        # MONITOR
+        self.nav_list.clear()
+        while self.stack.count():
+            widget = self.stack.widget(0)
+            self.stack.removeWidget(widget)
+            widget.deleteLater()
+
+        def adicionar_secao(nome_secao: str, widget: QWidget):
+            item = QListWidgetItem(nome_secao)
+            item.setData(Qt.UserRole, nome_secao)
+            item.setSizeHint(QSize(220, 44))
+            self.nav_list.addItem(item)
+            self.stack.addWidget(widget)
+            self.navegacao_indices[nome_secao] = self.stack.count() - 1
+
+        p = EstilosGUI.obter_paleta()
+
         pm = QWidget()
         lm = QVBoxLayout(pm)
 
@@ -2398,7 +2486,6 @@ class JanelaServidor(QMainWindow):
         grid_monitor.setContentsMargins(30, 30, 30, 30)
         grid_monitor.setSpacing(20)
 
-        p = EstilosGUI.obter_paleta()
         box_pendentes = DashboardBox("A RODAR HOJE", p["amarelo"])
         box_rodando = DashboardBox("RODANDO AGORA", p["azul"])
         box_sucesso = DashboardBox("SUCESSO HOJE", p["sucesso"])
@@ -2425,9 +2512,8 @@ class JanelaServidor(QMainWindow):
 
         sm.setWidget(container_monitor)
         lm.addWidget(sm)
-        self.tabs.addTab(pm, "MONITOR")
+        adicionar_secao("MONITOR", pm)
 
-        # ABA RECURSOS (memória/paginação por método)
         tab_rec = QWidget()
         lay_rec = QVBoxLayout(tab_rec)
         lbl_rec = QLabel("Consumo de memória/paginação por método em execução")
@@ -2435,9 +2521,8 @@ class JanelaServidor(QMainWindow):
         lay_rec.addWidget(lbl_rec)
         self.lista_recursos_metodos = QListWidget()
         lay_rec.addWidget(self.lista_recursos_metodos)
-        self.tabs.addTab(tab_rec, "RECURSOS")
+        adicionar_secao("RECURSOS", tab_rec)
 
-        # Abas por área / automação
         for aba, itens in self.mapeamento.items():
             if not itens:
                 continue
@@ -2449,6 +2534,11 @@ class JanelaServidor(QMainWindow):
 
             pg = QWidget()
             vb = QVBoxLayout(pg)
+
+            lbl_secao = QLabel(nome_tab)
+            lbl_secao.setStyleSheet("font-size: 16px; font-weight: 900; letter-spacing: 0.5px;")
+            vb.addWidget(lbl_secao)
+
             sc = QScrollArea()
             sc.setWidgetResizable(True)
             ct = QWidget()
@@ -2470,6 +2560,7 @@ class JanelaServidor(QMainWindow):
                     card.btn_log.clicked.connect(partial(self._acao_ver_log, met))
                     gd.addWidget(card, r, c)
                     self.cards[met] = card
+                    self.card_secao[met] = nome_tab
                     c += 1
                     if c >= max_c:
                         c = 0
@@ -2479,13 +2570,15 @@ class JanelaServidor(QMainWindow):
 
             sc.setWidget(ct)
             vb.addWidget(sc)
-            self.tabs.addTab(pg, nome_tab)
+            adicionar_secao(nome_tab, pg)
 
         self._preencher_cards()
         self._atualizar_monitor()
         self._atualizar_tab_recursos()
 
-        # reaplica filtro de busca, se houver texto
+        if self.nav_list.count() > 0:
+            self.nav_list.setCurrentRow(0)
+
         if self.input_busca is not None:
             self._on_busca_text_changed(self.input_busca.text())
 
@@ -2707,6 +2800,10 @@ class JanelaServidor(QMainWindow):
 
     def _on_busca_text_changed(self, texto: str):
         termo = (texto or "").strip().lower()
+        secoes_com_resultado = set()
+        total_encontrado = 0
+        if termo and not self._status_pre_busca:
+            self._status_pre_busca = self.lbl_status.text()
         for met, card in self.cards.items():
             if not termo:
                 card.setVisible(True)
@@ -2719,6 +2816,27 @@ class JanelaServidor(QMainWindow):
                 termo in campo for campo in (base, nome_auto, titulo_card)
             )
             card.setVisible(visivel)
+            if visivel:
+                total_encontrado += 1
+                secao = self.card_secao.get(met)
+                if secao:
+                    secoes_com_resultado.add(secao)
+
+        if termo:
+            if secoes_com_resultado:
+                alvo = sorted(secoes_com_resultado)[0]
+                self._ir_para_secao(alvo)
+                self.lbl_status.setText(
+                    f"Buscando '{texto.strip()}' • {total_encontrado} resultado(s)"
+                )
+            else:
+                self.lbl_status.setText(f"Nada encontrado para '{texto.strip()}'")
+        else:
+            if self._status_pre_busca:
+                self.lbl_status.setText(self._status_pre_busca)
+                self._status_pre_busca = ""
+            if self.nav_list is not None and self.nav_list.count() > 0 and self.nav_list.currentRow() < 0:
+                self.nav_list.setCurrentRow(0)
 
     def _acao_executar(self, metodo):
         path = None
@@ -2911,6 +3029,9 @@ def main():
             if janela_holder["janela"] is not None:
                 janela_holder["janela"].atualizar_mapeamento_threadsafe(df_exec, df_reg)
                 janela_holder["janela"].atualizar_status_planilhas(datetime.now(TZ), datetime.now(TZ))
+            ag = agendador_holder.get("ag")
+            if ag is not None:
+                ag.atualizar_planilhas()
 
         sincronizador = SincronizadorPlanilhas(
             logger,
@@ -2989,6 +3110,7 @@ def main():
             intervalo_segundos=20,
         )
         agendador_holder["ag"] = agendador
+        agendador.atualizar_planilhas()
 
         def on_exec_inicio(metodo, contexto, inicio):
             logger.info(f"exec_inicio metodo={metodo} origem={contexto.get('origem')}")
