@@ -455,20 +455,20 @@ class EstilosGUI:
     @staticmethod
     def obter_paleta():
         return {
-            "bg_fundo": "#0b1323",
-            "bg_card": "rgba(255,255,255,0.06)",
-            "bg_card_hover": "rgba(255,255,255,0.12)",
+            "bg_fundo": "#0c1220",
+            "bg_card": "rgba(255,255,255,0.08)",
+            "bg_card_hover": "rgba(255,255,255,0.16)",
             "destaque": "#0A84FF",
-            "verde": "#30D158",
-            "sucesso": "#30D158",
+            "verde": "#34C759",
+            "sucesso": "#34C759",
             "amarelo": "#FFD60A",
             "aviso": "#FF9F0A",
             "azul": "#64D2FF",
-            "branco": "#F5F7FB",
-            "texto_sec": "#9FB1CC",
-            "borda_suave": "rgba(255,255,255,0.08)",
-            "borda_suave_clara": "rgba(255,255,255,0.14)",
-            "gradient_top": "linear-gradient(135deg, rgba(100,210,255,0.9), rgba(10,132,255,0.85), rgba(162,132,255,0.95))",
+            "branco": "#F7F9FC",
+            "texto_sec": "#A8B7CE",
+            "borda_suave": "rgba(255,255,255,0.12)",
+            "borda_suave_clara": "rgba(255,255,255,0.2)",
+            "gradient_top": "linear-gradient(120deg, rgba(10,132,255,0.75), rgba(100,210,255,0.55), rgba(255,255,255,0.2))",
         }
 
     @staticmethod
@@ -481,9 +481,9 @@ class EstilosGUI:
             color: {p['branco']};
         }}
         QMainWindow {{
-            background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.04), transparent 26%),
-                        radial-gradient(circle at 80% 0%, rgba(10,132,255,0.12), transparent 36%),
-                        radial-gradient(circle at 50% 100%, rgba(100,210,255,0.1), transparent 32%),
+            background: radial-gradient(circle at 18% 18%, rgba(255,255,255,0.08), transparent 30%),
+                        radial-gradient(circle at 78% 6%, rgba(10,132,255,0.18), transparent 36%),
+                        radial-gradient(circle at 50% 100%, rgba(52,199,89,0.12), transparent 32%),
                         {p['bg_fundo']};
         }}
         QSplitter::handle {{
@@ -501,22 +501,21 @@ class EstilosGUI:
             color: {p['branco']};
         }}
         QLineEdit {{
-            background-color: rgba(255,255,255,0.08);
-            border-radius: 10px;
+            background-color: rgba(255,255,255,0.12);
+            border-radius: 12px;
             border: 1px solid {p['borda_suave_clara']};
-            padding: 8px 12px;
+            padding: 9px 14px;
             color: {p['branco']};
             font-size: 12px;
             selection-background-color: {p['destaque']};
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            selection-color: #0B1220;
         }}
         QLineEdit::placeholder {{
             color: rgba(255,255,255,0.45);
         }}
         QLineEdit:focus {{
             border: 1px solid {p['destaque']};
-            background-color: rgba(255,255,255,0.12);
-            box-shadow: 0 10px 30px rgba(10,132,255,0.25);
+            background-color: rgba(255,255,255,0.18);
         }}
         QCheckBox {{
             spacing: 5px;
@@ -570,26 +569,24 @@ class EstilosGUI:
         QListWidget {{
             background-color: {p['bg_card']};
             border: 1px solid {p['borda_suave_clara']};
-            border-radius: 10px;
-            padding: 6px;
+            border-radius: 12px;
+            padding: 8px;
         }}
         QListWidget#listaNavegacao {{
             background-color: {p['bg_card']};
-            border-radius: 12px;
+            border-radius: 14px;
             border: 1px solid {p['borda_suave_clara']};
-            box-shadow: 0 16px 38px rgba(0,0,0,0.28);
         }}
         QListWidget#listaNavegacao::item {{
-            padding: 12px 10px;
-            border-radius: 8px;
-            margin: 2px 4px;
+            padding: 12px 12px;
+            border-radius: 10px;
+            margin: 4px 4px;
             color: {p['texto_sec']};
-            font-weight: 600;
+            font-weight: 700;
         }}
         QListWidget#listaNavegacao::item:selected {{
             background: {p['gradient_top']};
             color: #0B1220;
-            box-shadow: 0 12px 26px rgba(10,132,255,0.35);
         }}
         QListWidget#listaNavegacao::item:hover {{
             background-color: {p['bg_card_hover']};
@@ -606,19 +603,17 @@ class EstilosGUI:
         cor = cor_borda if cor_borda else p["borda_suave"]
         return f"""
         QFrame#cardKanban {{
-            background: linear-gradient(160deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
-            border-radius: 16px;
+            background: linear-gradient(155deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04));
+            border-radius: 18px;
             border: 1px solid {cor};
-            box-shadow: 0 14px 35px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
         }}
         QFrame#cardKanban:hover {{
             background-color: {p['bg_card_hover']};
             border: 1px solid {p['destaque']};
-            box-shadow: 0 18px 42px rgba(10,132,255,0.35);
         }}
         QPushButton {{
-            border-radius: 8px;
-            padding: 8px 10px;
+            border-radius: 10px;
+            padding: 9px 12px;
             font-weight: 800;
             font-size: 10px;
             text-transform: uppercase;
@@ -627,7 +622,6 @@ class EstilosGUI:
             background-color: {p['destaque']};
             color: #FFFFFF;
             border: none;
-            box-shadow: 0 10px 28px rgba(10,132,255,0.35);
         }}
         QPushButton#botaoExecutar:hover {{
             background-color: #2a93ff;
@@ -637,7 +631,7 @@ class EstilosGUI:
             color: #888;
         }}
         QPushButton#botaoParar {{
-            background-color: {p['bg_card']};
+            background-color: rgba(255,255,255,0.12);
             color: {p['destaque']};
             border: 1px solid {p['destaque']};
         }}
@@ -677,14 +671,14 @@ class EstilosGUI:
         return f"""
         QFrame#DashboardBox {{
             background-color: {p['bg_card']};
-            border-radius: 6px;
+            border-radius: 12px;
             border: 1px solid {p['borda_suave']};
         }}
         QLabel#tituloBox {{
             font-size: 14px;
             font-weight: 800;
             color: {cor_titulo};
-            padding: 5px;
+            padding: 6px 8px;
         }}
         """
 
@@ -2169,7 +2163,6 @@ class JanelaServidor(QMainWindow):
                 border-radius: 14px;
                 padding: 14px 18px;
                 border: 1px solid {p_topo['borda_suave_clara']};
-                box-shadow: 0 18px 42px rgba(10,132,255,0.28);
             }}
             QLabel#statusLabel {{
                 color: #0B1220;
@@ -2252,16 +2245,15 @@ class JanelaServidor(QMainWindow):
         barra.setStyleSheet(
             f"""
             QLineEdit {{
-                background-color: {p['bg_card']};
-                border: 1px solid {p['borda_suave']};
-                border-radius: 6px;
-                padding: 8px 12px;
+                background-color: rgba(255,255,255,0.14);
+                border: 1px solid {p['borda_suave_clara']};
+                border-radius: 12px;
+                padding: 10px 14px;
                 color: {p['branco']};
                 font-size: 13px;
             }}
             QLineEdit:focus {{
                 border: 1px solid {p['destaque']};
-                box-shadow: 0 0 8px rgba(229, 9, 20, 0.35);
             }}
             QLineEdit::placeholder {{
                 color: {p['texto_sec']};
