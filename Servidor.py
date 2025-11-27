@@ -9,29 +9,91 @@ import psutil
 import shutil
 import gc
 import unicodedata
+import types
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
 from functools import partial
 from google.oauth2.credentials import Credentials
+import logging
+import traceback
+import getpass
 
 import pandas as pd
 from zoneinfo import ZoneInfo
-import json
-from google.oauth2 import service_account  # se quiser usar depois
-
 from google.cloud import bigquery
-from PySide6.QtCore import Qt, QTimer, QSize, Signal, Slot, QThread
-from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon, QAction
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QGridLayout, QLabel, QPushButton,
-    QFrame, QSizePolicy, QDialog, QTextEdit, QCheckBox, QMessageBox,
-    QListWidget, QListWidgetItem, QSplitter, QProgressBar,
-    QSystemTrayIcon, QMenu, QLineEdit, QStackedWidget
-)
-import logging
-import traceback
+
+if os.environ.get("QT_QPA_PLATFORM") in {None, "", "1"}:
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+QT_AVAILABLE = True
+QT_IMPORT_ERROR: Optional[Exception] = None
+try:
+    from PySide6.QtCore import Qt, QTimer, QSize, Signal, Slot, QThread
+    from PySide6.QtGui import QFont, QColor, QTextCursor, QIcon, QAction
+    from PySide6.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QScrollArea,
+        QGridLayout,
+        QLabel,
+        QPushButton,
+        QFrame,
+        QSizePolicy,
+        QDialog,
+        QTextEdit,
+        QCheckBox,
+        QMessageBox,
+        QListWidget,
+        QListWidgetItem,
+        QSplitter,
+        QProgressBar,
+        QSystemTrayIcon,
+        QMenu,
+        QLineEdit,
+        QStackedWidget,
+    )
+except Exception as qt_import_error:
+    QT_AVAILABLE = False
+    QT_IMPORT_ERROR = qt_import_error
+
+    def Slot(*_args, **_kwargs):
+        def _decorator(fn):
+            return fn
+
+        return _decorator
+
+    class Signal:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def connect(self, *_args, **_kwargs):
+            pass
+
+        def emit(self, *_args, **_kwargs):
+            pass
+
+    class QThread:
+        def __init__(self, *_, **__):
+            raise ImportError("PySide6 não está disponível") from QT_IMPORT_ERROR
+
+    class _MissingQtModule:
+        def __init__(self, *_, **__):
+            raise ImportError("PySide6 não está disponível") from QT_IMPORT_ERROR
+
+    Qt = types.SimpleNamespace()
+    QTimer = QSize = _MissingQtModule
+    QFont = QColor = QTextCursor = QIcon = QAction = _MissingQtModule
+    QApplication = QMainWindow = QWidget = _MissingQtModule
+    QVBoxLayout = QHBoxLayout = QScrollArea = _MissingQtModule
+    QGridLayout = QLabel = QPushButton = _MissingQtModule
+    QFrame = QSizePolicy = QDialog = QTextEdit = _MissingQtModule
+    QCheckBox = QMessageBox = QListWidget = QListWidgetItem = _MissingQtModule
+    QSplitter = QProgressBar = QSystemTrayIcon = _MissingQtModule
+    QMenu = QLineEdit = QStackedWidget = _MissingQtModule
 
 NOME_SERVIDOR = "Servidor.py"
 NOME_AUTOMACAO = "novo_servidor"
@@ -41,28 +103,37 @@ REGRAVAREXCEL = False
 NOME_SCRIPT = Path(__file__).stem.lower()
 TZ = ZoneInfo("America/Sao_Paulo")
 
+def _path_from_env(var_name: str, default: Path) -> Path:
+    valor = os.getenv(var_name)
+    if valor:
+        try:
+            return Path(valor).expanduser().resolve()
+        except Exception:
+            return default
+    return default
+
+
 BASE_SERVIDOR_DIR = Path(__file__).resolve().parent
-BASE_DIR = (
+BASE_DIR = _path_from_env(
+    "SERVIDOR_BASE_DIR",
     Path.home()
     / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
     / "Mensageria e Cargas Operacionais - 11.CelulaPython"
     / "graciliano"
-    / "automacoes"
+    / "automacoes",
 )
-DIR_LOGS_BASE = (
-    Path.home() / "graciliano" / "automacoes" / "cacatua" / "logs" / Path(__file__).stem.lower()
+DIR_LOGS_BASE = _path_from_env(
+    "SERVIDOR_LOG_DIR",
+    Path.home() / "graciliano" / "automacoes" / "cacatua" / "logs" / Path(__file__).stem.lower(),
 )
-DIR_CRED_CELPY = (
-    Path.home()
-    / "AppData"
-    / "Roaming"
-    / "CELPY"
-    / "tokens"
+DIR_CRED_CELPY = _path_from_env(
+    "SERVIDOR_CRED_DIR",
+    Path.home() / "AppData" / "Roaming" / "CELPY" / "tokens",
 )
 
 MAX_CONCURRENCY = int(os.getenv("SERVIDOR_MAX_CONCURRENCY", "3"))
 
-DOWNLOADS_DIR = Path.home() / "Downloads"
+DOWNLOADS_DIR = _path_from_env("SERVIDOR_DOWNLOAD_DIR", Path.home() / "Downloads")
 DIR_XLSX_AUTEXEC = DOWNLOADS_DIR / "automacoes_exec"
 DIR_XLSX_REG = DOWNLOADS_DIR / "registro_automacoes"
 ARQ_XLSX_AUTEXEC = DIR_XLSX_AUTEXEC / "automacoes_exec.xlsx"
@@ -1915,13 +1986,13 @@ class MonitorRecursos(QThread):
         self._lock = threading.Lock()
 
     def _resolver_temp_dir(self) -> Path:
-        base = (
-            os.environ.get("TEMP")
-            or os.environ.get("TMP")
-            or os.environ.get("TMPDIR")
-            or "/tmp"
-        )
-        return Path(base)
+        base_env = os.environ.get("SERVIDOR_TEMP_DIR")
+        if base_env:
+            base = Path(base_env).expanduser()
+        else:
+            base = Path.home() / ".servidor_temp"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
 
     def _calcular_tamanho_temp_mb(self) -> int:
         try:
@@ -2700,7 +2771,6 @@ class JanelaServidor(QMainWindow):
         if not self.dashboard_boxes:
             return
 
-        hoje = datetime.now(TZ).date()
         execs = self.executor.snapshot_execucao()
 
         # RODANDO AGORA
@@ -2858,7 +2928,11 @@ class JanelaServidor(QMainWindow):
                     break
 
         if path:
-            if self.executor.enfileirar(metodo, path, {"origem": "manual", "usuario": os.getlogin()}):
+            if self.executor.enfileirar(
+                metodo,
+                path,
+                {"origem": "manual", "usuario": getpass.getuser()},
+            ):
                 if metodo in self.cards:
                     self.cards[metodo].btn_executar.setEnabled(False)
                     self.cards[metodo].btn_executar.setText("INICIANDO...")
@@ -3019,7 +3093,7 @@ def main():
         HEADLESS = headless
         logger.info("modo_execucao headless=%s args=%s env_headless=%s", HEADLESS, extra_args, env_headless)
 
-        cliente_bq_servidor = ClienteBigQuery(logger, modo="servidor")
+        _cliente_bq_servidor = ClienteBigQuery(logger, modo="servidor")
         cliente_bq_planilhas = ClienteBigQuery(logger, modo="planilhas")
 
         df_exec_inicial = pd.DataFrame()
@@ -3093,7 +3167,7 @@ def main():
             / "solicitacoes_das_areas"
         )
 
-        monitor_solic = MonitorSolicitacoes(
+        _monitor_solic = MonitorSolicitacoes(
             logger,
             dir_solic,
             resolver_metodo,
