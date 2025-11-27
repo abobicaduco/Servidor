@@ -1,0 +1,4 @@
+pandas
+psutil
+google-cloud-bigquery
+google-auth
