@@ -1642,6 +1642,8 @@ class AgendadorMetodos:
     def atualizar_planilhas(self):
         try:
             self._recalcular_agenda()
+            self._catchup_executado = False
+            self.logger.info("agendador_atualizar_planilhas_catchup_reset")
         except Exception as e:
             self.logger.error("agendador_atualizar_planilhas_erro tipo=%s erro=%s", type(e).__name__, e)
 
@@ -2251,7 +2253,7 @@ class MonitorRecursos(QThread):
                         total += fp.stat().st_size
                     except Exception:
                         pass
-            return int(total / (1024 * 1024))
+            return int((total + (1024 * 1024 - 1)) / (1024 * 1024))
         except Exception as e:
             self.logger.error(
                 "monitor_recursos_temp_size_erro tipo=%s erro=%s",
@@ -2370,6 +2372,8 @@ class JanelaServidor(QMainWindow):
         self.ram_bar: Optional[QProgressBar] = None
         self.swap_bar: Optional[QProgressBar] = None
         self.lbl_temp: Optional[QLabel] = None
+        self._ultima_atualizacao_planilhas: Optional[datetime] = None
+        self._proxima_atualizacao_planilhas: Optional[datetime] = None
 
         # aba de recursos (swap/memória por método)
         self.lista_recursos_metodos: Optional[QListWidget] = None
@@ -2723,9 +2727,9 @@ class JanelaServidor(QMainWindow):
             QTimer.singleShot(0, self._preencher_cards)
             QTimer.singleShot(0, self._atualizar_monitor)
 
-        self.lbl_status.setText(
-            f"Planilhas atualizadas às {datetime.now(TZ).strftime('%H:%M:%S')}"
-        )
+        ultima = self._ultima_atualizacao_planilhas or datetime.now(TZ)
+        proxima = self._proxima_atualizacao_planilhas
+        self.atualizar_status_planilhas(ultima, proxima)
 
     def atualizar_mapeamento_threadsafe(self, df_exec, df_reg):
         self.sig_atualizar_dados.emit(df_exec, df_reg)
@@ -3312,7 +3316,16 @@ class JanelaServidor(QMainWindow):
                 cursor.deleteChar()
 
     def atualizar_status_planilhas(self, ultima, proxima):
-        pass
+        self._ultima_atualizacao_planilhas = ultima
+        self._proxima_atualizacao_planilhas = proxima
+        partes = []
+        if ultima:
+            partes.append(f"Última atualização: {ultima.strftime('%d/%m/%Y %H:%M:%S')}")
+        if proxima:
+            partes.append(f"Próxima atualização: {proxima.strftime('%d/%m/%Y %H:%M:%S')}")
+        if partes:
+            self.lbl_status.setText(" | ".join(partes))
+            self._status_pre_busca = self.lbl_status.text()
 
 
 def main():
@@ -3350,13 +3363,17 @@ def main():
         sync_holder = {"df_exec": df_exec_inicial, "df_reg": df_reg_inicial}
         janela_holder = {"janela": None}
         agendador_holder = {"ag": None}
+        sincronizador_holder = {"obj": None}
 
         def callback_planilhas(df_exec, df_reg):
             sync_holder["df_exec"] = df_exec
             sync_holder["df_reg"] = df_reg
             if janela_holder["janela"] is not None:
                 janela_holder["janela"].atualizar_mapeamento_threadsafe(df_exec, df_reg)
-                janela_holder["janela"].atualizar_status_planilhas(datetime.now(TZ), datetime.now(TZ))
+                sin = sincronizador_holder.get("obj")
+                ultima = getattr(sin, "ultima_execucao", None)
+                proxima = getattr(sin, "proxima_execucao", None)
+                janela_holder["janela"].atualizar_status_planilhas(ultima, proxima)
             ag = agendador_holder.get("ag")
             if ag is not None:
                 ag.atualizar_planilhas()
@@ -3367,6 +3384,7 @@ def main():
             intervalo_segundos=600,
             callback_atualizacao=callback_planilhas,
         )
+        sincronizador_holder["obj"] = sincronizador
 
         def obter_mapeamento_global():
             try:
