@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import os
 import subprocess
@@ -9,7 +11,6 @@ import psutil
 import shutil
 import gc
 import unicodedata
-import types
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
@@ -23,8 +24,9 @@ import pandas as pd
 from zoneinfo import ZoneInfo
 from google.cloud import bigquery
 
-if os.environ.get("QT_QPA_PLATFORM") in {None, "", "1"}:
-    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+_env_headless = os.getenv("SERVIDOR_HEADLESS", "").strip().lower()
+if _env_headless in {"1", "true", "yes", "sim"}:
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 QT_AVAILABLE = True
 QT_IMPORT_ERROR: Optional[Exception] = None
@@ -78,22 +80,264 @@ except Exception as qt_import_error:
 
     class QThread:
         def __init__(self, *_, **__):
-            raise ImportError("PySide6 não está disponível") from QT_IMPORT_ERROR
+            pass
 
-    class _MissingQtModule:
+    class Qt:
+        UserRole = 0
+        AlignLeft = 0
+        AlignVCenter = 0
+        KeepAspectRatio = 0
+
+    class _Dummy:
         def __init__(self, *_, **__):
-            raise ImportError("PySide6 não está disponível") from QT_IMPORT_ERROR
+            pass
 
-    Qt = types.SimpleNamespace()
-    QTimer = QSize = _MissingQtModule
-    QFont = QColor = QTextCursor = QIcon = QAction = _MissingQtModule
-    QApplication = QMainWindow = QWidget = _MissingQtModule
-    QVBoxLayout = QHBoxLayout = QScrollArea = _MissingQtModule
-    QGridLayout = QLabel = QPushButton = _MissingQtModule
-    QFrame = QSizePolicy = QDialog = QTextEdit = _MissingQtModule
-    QCheckBox = QMessageBox = QListWidget = QListWidgetItem = _MissingQtModule
-    QSplitter = QProgressBar = QSystemTrayIcon = _MissingQtModule
-    QMenu = QLineEdit = QStackedWidget = _MissingQtModule
+    class QTimer(_Dummy):
+        pass
+
+    class QSize(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QFont(_Dummy):
+        Bold = 0
+
+    class QColor(_Dummy):
+        pass
+
+    class QTextCursor(_Dummy):
+        End = 0
+
+    class QIcon(_Dummy):
+        pass
+
+    class QAction(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QApplication(_Dummy):
+        @staticmethod
+        def instance():
+            return None
+
+        def exec(self):
+            return 0
+
+    class QMainWindow(_Dummy):
+        pass
+
+    class QWidget(_Dummy):
+        pass
+
+    class QVBoxLayout(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QHBoxLayout(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QScrollArea(_Dummy):
+        def setWidgetResizable(self, *_args, **_kwargs):
+            pass
+
+        def setWidget(self, *_args, **_kwargs):
+            pass
+
+    class QGridLayout(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def setContentsMargins(self, *_args, **_kwargs):
+            pass
+
+        def setSpacing(self, *_args, **_kwargs):
+            pass
+
+        def addWidget(self, *_args, **_kwargs):
+            pass
+
+    class QLabel(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def setPixmap(self, *_args, **_kwargs):
+            pass
+
+    class QPushButton(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QFrame(_Dummy):
+        StyledPanel = 0
+        Sunken = 0
+
+    class QSizePolicy(_Dummy):
+        Expanding = 0
+        Preferred = 0
+
+    class QDialog(_Dummy):
+        pass
+
+    class QTextEdit(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QCheckBox(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+    class QMessageBox(_Dummy):
+        Yes = 1
+        No = 0
+
+        @staticmethod
+        def question(*_args, **_kwargs):
+            return QMessageBox.No
+
+    class QListWidget(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def count(self):
+            return 0
+
+        def item(self, *_args, **_kwargs):
+            return None
+
+        def selectedItems(self):
+            return []
+
+        def row(self, *_args, **_kwargs):
+            return 0
+
+        def takeItem(self, *_args, **_kwargs):
+            pass
+
+        def insertItem(self, *_args, **_kwargs):
+            pass
+
+        def addItem(self, *_args, **_kwargs):
+            pass
+
+        def clear(self):
+            pass
+
+    class QListWidgetItem(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def text(self):
+            return ""
+
+        def setData(self, *_args, **_kwargs):
+            pass
+
+        def setSizeHint(self, *_args, **_kwargs):
+            pass
+
+        def setSelected(self, *_args, **_kwargs):
+            pass
+
+    class QSplitter(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def addWidget(self, *_args, **_kwargs):
+            pass
+
+        def setSizes(self, *_args, **_kwargs):
+            pass
+
+    class QProgressBar(_Dummy):
+        def setValue(self, *_args, **_kwargs):
+            pass
+
+        def setFormat(self, *_args, **_kwargs):
+            pass
+
+        def setStyleSheet(self, *_args, **_kwargs):
+            pass
+
+    class QSystemTrayIcon(_Dummy):
+        Trigger = 0
+        Information = 0
+
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        @staticmethod
+        def isSystemTrayAvailable():
+            return False
+
+        def setIcon(self, *_args, **_kwargs):
+            pass
+
+        def setToolTip(self, *_args, **_kwargs):
+            pass
+
+        def setContextMenu(self, *_args, **_kwargs):
+            pass
+
+        def show(self):
+            pass
+
+        def showMessage(self, *_args, **_kwargs):
+            pass
+
+        def hide(self):
+            pass
+
+        def activated(self, *_args, **_kwargs):
+            pass
+
+        def isVisible(self):
+            return False
+
+    class QMenu(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def addAction(self, *_args, **_kwargs):
+            pass
+
+        def addSeparator(self, *_args, **_kwargs):
+            pass
+
+    class QLineEdit(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def text(self):
+            return ""
+
+        def setPlaceholderText(self, *_args, **_kwargs):
+            pass
+
+        def setStyleSheet(self, *_args, **_kwargs):
+            pass
+
+        def textChanged(self, *_args, **_kwargs):
+            pass
+
+    class QStackedWidget(_Dummy):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+
+        def count(self):
+            return 0
+
+        def widget(self, *_args, **_kwargs):
+            return None
+
+        def removeWidget(self, *_args, **_kwargs):
+            pass
+
+        def addWidget(self, *_args, **_kwargs):
+            pass
+
+        def currentIndexChanged(self, *_args, **_kwargs):
+            pass
 
 NOME_SERVIDOR = "Servidor.py"
 NOME_AUTOMACAO = "novo_servidor"
@@ -1414,7 +1658,8 @@ class AgendadorMetodos:
             if not p:
                 continue
             if re.fullmatch(r"\d{1,2}:\d{2}", p):
-                horarios.append(p)
+                hora, minuto = p.split(":")
+                horarios.append(f"{int(hora):02d}:{int(minuto):02d}")
         horarios_ordenados = sorted(
             horarios,
             key=lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1]),
