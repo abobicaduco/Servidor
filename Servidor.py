@@ -360,18 +360,24 @@ def _path_from_env(var_name: str, default: Path) -> Path:
 
 
 BASE_SERVIDOR_DIR = Path(__file__).resolve().parent
-BASE_DIR = _path_from_env(
-    "SERVIDOR_BASE_DIR",
+DIR_SERVIDOR = _path_from_env(
+    "SERVIDOR_DIR",
     Path.home()
     / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
     / "Mensageria e Cargas Operacionais - 11.CelulaPython"
     / "graciliano"
-    / "automacoes",
+    / "novo_servidor",
+)
+BASE_DIR = _path_from_env(
+    "SERVIDOR_BASE_DIR",
+    DIR_SERVIDOR / "modules",
 )
 DIR_LOGS_BASE = _path_from_env(
     "SERVIDOR_LOG_DIR",
-    Path.home() / "graciliano" / "automacoes" / "cacatua" / "logs" / Path(__file__).stem.lower(),
+    DIR_SERVIDOR / "logs",
 )
+DIR_SOLICITACOES = DIR_SERVIDOR / "solicitacoes_das_areas"
+DIR_HISTORICO_SOLICITACOES = DIR_SERVIDOR / "historico_solicitacoes"
 DIR_CRED_CELPY = _path_from_env(
     "SERVIDOR_CRED_DIR",
     Path.home() / "AppData" / "Roaming" / "CELPY" / "tokens",
@@ -416,6 +422,19 @@ class ConfiguradorLogger:
         logger.addHandler(sh)
         logger.addHandler(fh)
         return logger, log_path, fmt
+
+
+def log_caminhos_servidor(logger):
+    caminhos = {
+        "dir_servidor": DIR_SERVIDOR,
+        "dir_modulos": BASE_DIR,
+        "dir_logs": DIR_LOGS_BASE,
+        "dir_solicitacoes": DIR_SOLICITACOES,
+        "dir_historico": DIR_HISTORICO_SOLICITACOES,
+    }
+    for nome, caminho in caminhos.items():
+        if caminho.exists():
+            logger.info("caminho_encontrado %s=%s", nome, str(caminho))
 
 
 class QtLogHandler(logging.Handler):
@@ -1365,9 +1384,21 @@ class MonitorSolicitacoes:
         while not self._parar:
             try:
                 arquivos = list(self.dir.glob("*.txt"))
+                if arquivos:
+                    self.logger.info(
+                        "monitor_solicitacoes_arquivos_encontrados total=%s dir=%s",
+                        len(arquivos),
+                        str(self.dir),
+                    )
                 for f in arquivos:
                     try:
                         nome = f.name
+
+                        self.logger.info(
+                            "monitor_solicitacoes_arquivo_encontrado nome=%s caminho=%s",
+                            nome,
+                            str(f),
+                        )
 
                         if nome.startswith("~") or nome.startswith("."):
                             f.unlink(missing_ok=True)
@@ -3435,6 +3466,7 @@ def main():
     )
 
     logger, log_path, fmt_logger = ConfiguradorLogger.criar_logger()
+    log_caminhos_servidor(logger)
 
     # Redireciona stdout/stderr para o logger (vai cair no painel via QtLogHandler)
     sys.stdout = StdoutRedirector(logger, level=logging.INFO)
@@ -3521,10 +3553,8 @@ def main():
             executor.enfileirar(metodo, caminho, ctx, quando)
         notificador_email = NotificadorEmail(logger)
 
-        base_solicitacoes = BASE_DIR / "novo_servidor"
-
-        dir_solic = base_solicitacoes / "solicitacoes_das_areas"
-        dir_hist = base_solicitacoes / "historico_solicitacoes"
+        dir_solic = DIR_SOLICITACOES
+        dir_hist = DIR_HISTORICO_SOLICITACOES
 
         _monitor_solic = MonitorSolicitacoes(
             logger,
