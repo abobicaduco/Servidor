@@ -370,7 +370,11 @@ DIR_SERVIDOR = _path_from_env(
 )
 BASE_DIR = _path_from_env(
     "SERVIDOR_BASE_DIR",
-    DIR_SERVIDOR / "modules",
+    Path.home()
+    / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
+    / "Mensageria e Cargas Operacionais - 11.CelulaPython"
+    / "graciliano"
+    / "automacoes",
 )
 DIR_LOGS_BASE = _path_from_env(
     "SERVIDOR_LOG_DIR",
@@ -637,7 +641,9 @@ class DescobridorMetodos:
                 pasta_metodos = automacao_dir / "metodos"
                 if not pasta_metodos.exists() or not pasta_metodos.is_dir():
                     continue
-                for py in pasta_metodos.glob("*.py"):
+                for py in pasta_metodos.rglob("*.py"):
+                    if not py.is_file():
+                        continue
                     if py.name.startswith("__"):
                         continue
                     stem = py.stem
