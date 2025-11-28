@@ -11,9 +11,8 @@ import psutil
 import shutil
 import gc
 import unicodedata
-import smtplib
+import importlib
 from pathlib import Path
-from email.message import EmailMessage
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
 from functools import partial
@@ -370,7 +369,11 @@ DIR_SERVIDOR = _path_from_env(
 )
 BASE_DIR = _path_from_env(
     "SERVIDOR_BASE_DIR",
-    DIR_SERVIDOR / "modules",
+    Path.home()
+    / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
+    / "Mensageria e Cargas Operacionais - 11.CelulaPython"
+    / "graciliano"
+    / "automacoes",
 )
 DIR_LOGS_BASE = _path_from_env(
     "SERVIDOR_LOG_DIR",
@@ -637,7 +640,9 @@ class DescobridorMetodos:
                 pasta_metodos = automacao_dir / "metodos"
                 if not pasta_metodos.exists() or not pasta_metodos.is_dir():
                     continue
-                for py in pasta_metodos.glob("*.py"):
+                for py in pasta_metodos.rglob("*.py"):
+                    if not py.is_file():
+                        continue
                     if py.name.startswith("__"):
                         continue
                     stem = py.stem
@@ -1239,12 +1244,8 @@ class LogDialog(QDialog):
 class NotificadorEmail:
     def __init__(self, logger):
         self.logger = logger
-        self.host = os.getenv("SERVIDOR_SMTP_HOST", "").strip()
-        self.porta = int(os.getenv("SERVIDOR_SMTP_PORT", "0") or 0) or 25
-        self.usuario = os.getenv("SERVIDOR_SMTP_USER", "").strip()
-        self.senha = os.getenv("SERVIDOR_SMTP_PASS", "").strip()
-        self.remetente = os.getenv("SERVIDOR_SMTP_FROM", self.usuario).strip()
-        self.usar_tls = os.getenv("SERVIDOR_SMTP_TLS", "").strip().lower() in {"1", "true", "yes", "sim"}
+        self.pythoncom = importlib.import_module("pythoncom") if importlib.util.find_spec("pythoncom") else None
+        self.win32com = importlib.import_module("win32com.client") if importlib.util.find_spec("win32com.client") else None
 
     def _normalizar_destinatarios(self, destinatarios):
         lista = []
@@ -1255,51 +1256,43 @@ class NotificadorEmail:
                     lista.append(p.strip())
         return lista
 
-    def enviar(self, assunto, corpo, destinatarios, anexos=None):
-        dest = self._normalizar_destinatarios(destinatarios)
-        if not dest or not self.host or not self.remetente:
-            self.logger.warning(
-                "email_config_incompleta host=%s remetente=%s destinatarios=%s",
-                self.host,
-                bool(self.remetente),
-                dest,
-            )
+    def _enviar_outlook(self, assunto, corpo, dest, anexos):
+        if not self.pythoncom or not self.win32com:
+            self.logger.warning("email_outlook_indisponivel pythoncom=%s win32com=%s", bool(self.pythoncom), bool(self.win32com))
             return False
-
-        msg = EmailMessage()
-        msg["Subject"] = assunto
-        msg["From"] = self.remetente
-        msg["To"] = ", ".join(dest)
-        msg.set_content(corpo)
-
-        for anexo in anexos or []:
-            try:
+        try:
+            self.pythoncom.CoInitialize()
+            outlook = self.win32com.Dispatch("Outlook.Application")
+            mail = outlook.CreateItem(0)
+            mail.Subject = assunto
+            mail.To = ";".join(dest)
+            mail.HTMLBody = corpo
+            for anexo in anexos or []:
                 p = Path(anexo)
                 if not p.exists():
                     self.logger.warning("email_anexo_inexistente arquivo=%s", str(anexo))
                     continue
-                conteudo = p.read_bytes()
-                msg.add_attachment(
-                    conteudo,
-                    maintype="text",
-                    subtype="plain",
-                    filename=p.name,
-                )
-            except Exception as e:
-                self.logger.error("email_anexo_erro arquivo=%s tipo=%s erro=%s", str(anexo), type(e).__name__, e)
-
-        try:
-            with smtplib.SMTP(self.host, self.porta, timeout=10) as smtp:
-                if self.usar_tls:
-                    smtp.starttls()
-                if self.usuario and self.senha:
-                    smtp.login(self.usuario, self.senha)
-                smtp.send_message(msg)
-            self.logger.info("email_enviado assunto=%s para=%s", assunto, ",".join(dest))
+                mail.Attachments.Add(str(p))
+            mail.Send()
+            self.logger.info("email_outlook_enviado assunto=%s para=%s", assunto, ";".join(dest))
             return True
         except Exception as e:
-            self.logger.error("email_envio_erro tipo=%s erro=%s", type(e).__name__, e)
+            self.logger.error("email_outlook_erro tipo=%s erro=%s", type(e).__name__, e)
             return False
+        finally:
+            try:
+                self.pythoncom.CoUninitialize()
+            except Exception:
+                pass
+
+    def enviar(self, assunto, corpo, destinatarios, anexos=None):
+        dest = self._normalizar_destinatarios(destinatarios)
+        if not dest:
+            self.logger.warning("email_destinatarios_invalidos dados=%s", destinatarios)
+            return False
+
+        anexos = anexos or []
+        return self._enviar_outlook(assunto, corpo, dest, anexos)
 
 
 class MonitorSolicitacoes:
@@ -1351,11 +1344,12 @@ class MonitorSolicitacoes:
             )
             return destino
         except Exception as e:
-            self.logger.error("solicitacao_mover_erro arquivo=%s tipo=%s erro=%s", str(arquivo), type(e).__name__, e)
-            try:
-                arquivo.unlink(missing_ok=True)
-            except Exception:
-                pass
+            self.logger.error(
+                "solicitacao_mover_erro arquivo=%s tipo=%s erro=%s",
+                str(arquivo),
+                type(e).__name__,
+                e,
+            )
             return None
 
     def _enviar_email_inicio(self, metodo, login, arquivo_anexo):
@@ -1375,7 +1369,7 @@ class MonitorSolicitacoes:
         assunto = f"Solicitação de método {metodo} não localizado"
         corpo = (
             "Não foi possível localizar o método solicitado. "
-            "Entre em contato com Carlos.lsilva para confirmar o nome correto."
+            "Entre em contato com carlos.lsilva@c6bank.com ou sofia.fernandes@c6bank.com para confirmar o nome correto."
         )
         anexos = [arquivo_anexo] if arquivo_anexo else []
         self.notificador_email.enviar(assunto, corpo, [login], anexos)
@@ -1401,19 +1395,33 @@ class MonitorSolicitacoes:
                         )
 
                         if nome.startswith("~") or nome.startswith("."):
-                            f.unlink(missing_ok=True)
+                            destino_temp = self._mover_para_historico(f)
+                            self.logger.info(
+                                "solicitacao_ignorada_nome_temporario nome=%s destino=%s",
+                                nome,
+                                str(destino_temp) if destino_temp else "",
+                            )
                             continue
 
                         try:
-                            if f.stat().st_size == 0:
-                                f.unlink(missing_ok=True)
-                                continue
-                        except Exception:
-                            try:
-                                f.unlink(missing_ok=True)
-                            except Exception:
-                                pass
+                            tamanho = f.stat().st_size
+                        except Exception as e_stat:
+                            destino_stat = self._mover_para_historico(f)
+                            self.logger.error(
+                                "solicitacao_arquivo_inacessivel nome=%s tipo=%s erro=%s destino=%s",
+                                nome,
+                                type(e_stat).__name__,
+                                e_stat,
+                                str(destino_stat) if destino_stat else "",
+                            )
                             continue
+
+                        if tamanho == 0:
+                            self.logger.warning(
+                                "solicitacao_arquivo_vazio nome=%s caminho=%s",
+                                nome,
+                                str(f),
+                            )
 
                         try:
                             conteudo = f.read_text(encoding="utf-8", errors="ignore").strip()
@@ -1423,10 +1431,12 @@ class MonitorSolicitacoes:
                         stem = f.stem
                         metodo_raw, login_raw = self._extrair_metodo_login(stem)
                         if not metodo_raw:
-                            try:
-                                f.unlink(missing_ok=True)
-                            except Exception:
-                                pass
+                            destino_nome = self._mover_para_historico(f)
+                            self.logger.warning(
+                                "solicitacao_sem_metodo nome=%s destino=%s",
+                                nome,
+                                str(destino_nome) if destino_nome else "",
+                            )
                             continue
 
                         alvo_login = str(login_raw or "").strip().lower()
@@ -1487,10 +1497,13 @@ class MonitorSolicitacoes:
                             type(e_arquivo).__name__,
                             e_arquivo,
                         )
-                        try:
-                            f.unlink(missing_ok=True)
-                        except Exception:
-                            pass
+                        destino_falha = self._mover_para_historico(f)
+                        if destino_falha:
+                            self.logger.info(
+                                "solicitacao_movida_pos_erro nome=%s destino=%s",
+                                getattr(f, "name", "?"),
+                                str(destino_falha),
+                            )
                         continue
             except Exception as e:
                 self.logger.error("monitor_solicitacoes_erro tipo=%s erro=%s", type(e).__name__, e)
@@ -3607,7 +3620,11 @@ def main():
             if log_filho:
                 anexos.append(log_filho)
             assunto = f"Solicitação de método {metodo} finalizada ({status_txt})"
-            corpo = f"O método {metodo} foi finalizado com status {status_txt}."
+            corpo = (
+                f"Olá, o método {metodo} foi executado com status {status_txt}. "
+                "Caso precise de suporte ou o resultado não seja o esperado, entre em contato com "
+                "carlos.lsilva@c6bank.com ou sofia.fernandes@c6bank.com."
+            )
             notificador_email.enviar(assunto, corpo, [usuario], anexos)
 
         def on_exec_fim(metodo, contexto, rc, log_filho):
