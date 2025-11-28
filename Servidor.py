@@ -749,7 +749,8 @@ class DescobridorMetodos:
         except Exception as e:
             self.logger.error(f"descobrir_metodos_registro_erro tipo={type(e).__name__} erro={e}")
         total_match = 0
-        total_sem_atr = 0
+        total_sem_registro = 0
+        total_sem_agendamento = 0
         try:
             for norm, dados in metodos_fs.items():
                 stem = dados["stem"]
@@ -764,27 +765,36 @@ class DescobridorMetodos:
                     if status_up in {"ISOLADO", "ISOLADOS", "ISOLADA", "ISOLADAS"}:
                         nome_aba = "ISOLADOS"
                     nome_aba = nome_aba.upper()
-                    mapeamento.setdefault(nome_aba, {})[stem] = {
-                        "path": caminho,
-                        "registro": info_reg,
-                        "norm_key": norm,
-                    }
-                    total_match += 1
+                    if status_up != "ATIVA":
+                        mapeamento.setdefault("SEM AGENDAMENTOS", {})[stem] = {
+                            "path": caminho,
+                            "registro": info_reg,
+                            "norm_key": norm,
+                        }
+                        total_sem_agendamento += 1
+                    else:
+                        mapeamento.setdefault(nome_aba, {})[stem] = {
+                            "path": caminho,
+                            "registro": info_reg,
+                            "norm_key": norm,
+                        }
+                        total_match += 1
                 else:
-                    mapeamento.setdefault("SEM_ATRIBUICAO", {})[stem] = {
+                    mapeamento.setdefault("SEM REGISTRO", {})[stem] = {
                         "path": caminho,
                         "registro": None,
                         "norm_key": norm,
                     }
-                    total_sem_atr += 1
+                    total_sem_registro += 1
             if not mapeamento:
-                mapeamento["SEM_ATRIBUICAO"] = {}
+                mapeamento["SEM REGISTRO"] = {}
             resumo_abas = {aba: len(metodos) for aba, metodos in mapeamento.items()}
             self.logger.info(
-                "descobrir_metodos_mapeamento total_fs=%s casados_registro=%s sem_atribuicao=%s abas=%s",
+                "descobrir_metodos_mapeamento total_fs=%s ativos=%s sem_agendamento=%s sem_registro=%s abas=%s",
                 len(metodos_fs),
                 total_match,
-                total_sem_atr,
+                total_sem_agendamento,
+                total_sem_registro,
                 resumo_abas,
             )
         except Exception as e:
@@ -2997,8 +3007,10 @@ class JanelaServidor(QMainWindow):
             if not itens:
                 continue
 
-            if aba == "SEM_ATRIBUICAO":
-                nome_tab = "EXPLORAR / MANUAIS"
+            if aba == "SEM REGISTRO":
+                nome_tab = "SEM REGISTRO"
+            elif aba == "SEM AGENDAMENTOS":
+                nome_tab = "SEM AGENDAMENTOS"
             else:
                 nome_tab = aba
 
@@ -3500,6 +3512,7 @@ def main():
 
         df_exec_inicial = pd.DataFrame()
         df_reg_inicial = pd.DataFrame()
+        primeira_sincronia = threading.Event()
 
         descobridor = DescobridorMetodos(logger)
         executor = ExecutorMetodos(logger, MAX_CONCURRENCY)
@@ -3521,6 +3534,8 @@ def main():
             ag = agendador_holder.get("ag")
             if ag is not None:
                 ag.atualizar_planilhas()
+            if not primeira_sincronia.is_set():
+                primeira_sincronia.set()
 
         sincronizador = SincronizadorPlanilhas(
             logger,
@@ -3529,6 +3544,16 @@ def main():
             callback_atualizacao=callback_planilhas,
         )
         sincronizador_holder["obj"] = sincronizador
+
+        if not primeira_sincronia.wait(timeout=120):
+            logger.warning("sincronizador_primeira_execucao_timeout aguardando_planilhas")
+
+        try:
+            df_exec_inicial = sync_holder.get("df_exec", pd.DataFrame())
+            df_reg_inicial = sync_holder.get("df_reg", pd.DataFrame())
+        except Exception:
+            df_exec_inicial = pd.DataFrame()
+            df_reg_inicial = pd.DataFrame()
 
         def obter_mapeamento_global():
             try:
