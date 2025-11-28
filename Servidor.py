@@ -1357,11 +1357,12 @@ class MonitorSolicitacoes:
             )
             return destino
         except Exception as e:
-            self.logger.error("solicitacao_mover_erro arquivo=%s tipo=%s erro=%s", str(arquivo), type(e).__name__, e)
-            try:
-                arquivo.unlink(missing_ok=True)
-            except Exception:
-                pass
+            self.logger.error(
+                "solicitacao_mover_erro arquivo=%s tipo=%s erro=%s",
+                str(arquivo),
+                type(e).__name__,
+                e,
+            )
             return None
 
     def _enviar_email_inicio(self, metodo, login, arquivo_anexo):
@@ -1407,19 +1408,33 @@ class MonitorSolicitacoes:
                         )
 
                         if nome.startswith("~") or nome.startswith("."):
-                            f.unlink(missing_ok=True)
+                            destino_temp = self._mover_para_historico(f)
+                            self.logger.info(
+                                "solicitacao_ignorada_nome_temporario nome=%s destino=%s",
+                                nome,
+                                str(destino_temp) if destino_temp else "",
+                            )
                             continue
 
                         try:
-                            if f.stat().st_size == 0:
-                                f.unlink(missing_ok=True)
-                                continue
-                        except Exception:
-                            try:
-                                f.unlink(missing_ok=True)
-                            except Exception:
-                                pass
+                            tamanho = f.stat().st_size
+                        except Exception as e_stat:
+                            destino_stat = self._mover_para_historico(f)
+                            self.logger.error(
+                                "solicitacao_arquivo_inacessivel nome=%s tipo=%s erro=%s destino=%s",
+                                nome,
+                                type(e_stat).__name__,
+                                e_stat,
+                                str(destino_stat) if destino_stat else "",
+                            )
                             continue
+
+                        if tamanho == 0:
+                            self.logger.warning(
+                                "solicitacao_arquivo_vazio nome=%s caminho=%s",
+                                nome,
+                                str(f),
+                            )
 
                         try:
                             conteudo = f.read_text(encoding="utf-8", errors="ignore").strip()
@@ -1429,10 +1444,12 @@ class MonitorSolicitacoes:
                         stem = f.stem
                         metodo_raw, login_raw = self._extrair_metodo_login(stem)
                         if not metodo_raw:
-                            try:
-                                f.unlink(missing_ok=True)
-                            except Exception:
-                                pass
+                            destino_nome = self._mover_para_historico(f)
+                            self.logger.warning(
+                                "solicitacao_sem_metodo nome=%s destino=%s",
+                                nome,
+                                str(destino_nome) if destino_nome else "",
+                            )
                             continue
 
                         alvo_login = str(login_raw or "").strip().lower()
@@ -1493,10 +1510,13 @@ class MonitorSolicitacoes:
                             type(e_arquivo).__name__,
                             e_arquivo,
                         )
-                        try:
-                            f.unlink(missing_ok=True)
-                        except Exception:
-                            pass
+                        destino_falha = self._mover_para_historico(f)
+                        if destino_falha:
+                            self.logger.info(
+                                "solicitacao_movida_pos_erro nome=%s destino=%s",
+                                getattr(f, "name", "?"),
+                                str(destino_falha),
+                            )
                         continue
             except Exception as e:
                 self.logger.error("monitor_solicitacoes_erro tipo=%s erro=%s", type(e).__name__, e)
