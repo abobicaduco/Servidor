@@ -1535,9 +1535,19 @@ class SincronizadorPlanilhas:
         self.proxima_execucao: Optional[datetime] = None
         self._parar = False
         self._pausado = False
+        self._primeira_sincronia = threading.Event()
 
-        DIR_XLSX_AUTEXEC.mkdir(parents=True, exist_ok=True)
-        DIR_XLSX_REG.mkdir(parents=True, exist_ok=True)
+        for pasta in (DIR_XLSX_AUTEXEC, DIR_XLSX_REG):
+            try:
+                pasta.mkdir(parents=True, exist_ok=True)
+                self.logger.info("sincronizador_garantir_pasta_ok pasta=%s", str(pasta))
+            except Exception as e:
+                self.logger.error(
+                    "sincronizador_garantir_pasta_erro pasta=%s tipo=%s erro=%s",
+                    str(pasta),
+                    type(e).__name__,
+                    e,
+                )
 
         try:
             self.logger.info("sincronizador_init_primeira_execucao")
@@ -1551,6 +1561,9 @@ class SincronizadorPlanilhas:
 
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
+
+    def aguardar_primeira_execucao(self, timeout: Optional[int] = None) -> bool:
+        return self._primeira_sincronia.wait(timeout=timeout)
 
     def pausar(self, status: bool):
         self._pausado = status
@@ -1677,74 +1690,74 @@ class SincronizadorPlanilhas:
             return pd.DataFrame()
 
     def sincronizar_de_arquivos(self):
-        df_exec = pd.DataFrame()
-        df_reg = pd.DataFrame()
-
-        # reset pastas XLSX
-        for pasta in (DIR_XLSX_AUTEXEC, DIR_XLSX_REG):
-            try:
-                if pasta.exists():
-                    shutil.rmtree(pasta)
-                pasta.mkdir(parents=True, exist_ok=True)
-                self.logger.info("sincronizador_reset_pasta_ok pasta=%s", str(pasta))
-            except Exception as e:
-                self.logger.error(
-                    "sincronizador_reset_pasta_erro pasta=%s tipo=%s erro=%s",
-                    str(pasta),
-                    type(e).__name__,
-                    e,
-                )
-
         try:
-            if not getattr(self.cliente_bq, "offline", False) and self.cliente_bq.client is not None:
-                self.logger.info("sincronizador_download_bq_inicio")
+            df_exec = pd.DataFrame()
+            df_reg = pd.DataFrame()
 
-                sql_exec = f"SELECT * FROM `{TBL_AUTOMACOES_EXEC}`"
-                df_exec_bq = self.cliente_bq.query_df(sql_exec)
-                self.logger.info(
-                    "sincronizador_download_exec_ok linhas=%s cols=%s",
-                    len(df_exec_bq),
-                    list(df_exec_bq.columns),
-                )
-                df_exec_bq.to_excel(ARQ_XLSX_AUTEXEC, index=False)
+            for pasta in (DIR_XLSX_AUTEXEC, DIR_XLSX_REG):
+                try:
+                    pasta.mkdir(parents=True, exist_ok=True)
+                    self.logger.info("sincronizador_garantir_pasta_ok pasta=%s", str(pasta))
+                except Exception as e:
+                    self.logger.error(
+                        "sincronizador_garantir_pasta_erro pasta=%s tipo=%s erro=%s",
+                        str(pasta),
+                        type(e).__name__,
+                        e,
+                    )
 
-                sql_reg = f"SELECT * FROM `{TBL_REGISTRO_AUTOMACOES}`"
-                df_reg_bq = self.cliente_bq.query_df(sql_reg)
-                self.logger.info(
-                    "sincronizador_download_reg_ok linhas=%s cols=%s",
-                    len(df_reg_bq),
-                    list(df_reg_bq.columns),
-                )
-                df_reg_bq.to_excel(ARQ_XLSX_REG, index=False)
-            else:
-                self.logger.warning("sincronizador_modo_offline - usando apenas planilhas locais (se existirem)")
-        except Exception as e:
-            self.logger.error("sincronizador_download_bq_erro tipo=%s erro=%s", type(e).__name__, e)
-
-        df_exec = self.ler_exec_df()
-        df_reg = self.ler_reg_df()
-
-        # prepara df_exec com dt_full já calculado e ordenado
-        df_exec = self._preparar_exec_df(df_exec)
-
-        df_exec = self._converter_tudo_para_texto(df_exec)
-        df_reg = self._converter_tudo_para_texto(df_reg)
-
-        self.ultima_execucao = datetime.now(TZ)
-        self.proxima_execucao = self.ultima_execucao + timedelta(seconds=self.intervalo_segundos)
-
-        self.logger.info(
-            "sincronizador_planilhas_arquivos ultima_execucao=%s df_exec_shape=%s df_reg_shape=%s",
-            self.ultima_execucao.isoformat(),
-            getattr(df_exec, "shape", None),
-            getattr(df_reg, "shape", None),
-        )
-
-        if self.callback_atualizacao:
             try:
-                self.callback_atualizacao(df_exec, df_reg)
+                if not getattr(self.cliente_bq, "offline", False) and self.cliente_bq.client is not None:
+                    self.logger.info("sincronizador_download_bq_inicio")
+
+                    sql_exec = f"SELECT * FROM `{TBL_AUTOMACOES_EXEC}`"
+                    df_exec_bq = self.cliente_bq.query_df(sql_exec)
+                    self.logger.info(
+                        "sincronizador_download_exec_ok linhas=%s cols=%s",
+                        len(df_exec_bq),
+                        list(df_exec_bq.columns),
+                    )
+                    df_exec_bq.to_excel(ARQ_XLSX_AUTEXEC, index=False)
+
+                    sql_reg = f"SELECT * FROM `{TBL_REGISTRO_AUTOMACOES}`"
+                    df_reg_bq = self.cliente_bq.query_df(sql_reg)
+                    self.logger.info(
+                        "sincronizador_download_reg_ok linhas=%s cols=%s",
+                        len(df_reg_bq),
+                        list(df_reg_bq.columns),
+                    )
+                    df_reg_bq.to_excel(ARQ_XLSX_REG, index=False)
+                else:
+                    self.logger.warning("sincronizador_modo_offline - usando apenas planilhas locais (se existirem)")
             except Exception as e:
-                self.logger.error("callback_atualizacao_erro tipo=%s erro=%s", type(e).__name__, e)
+                self.logger.error("sincronizador_download_bq_erro tipo=%s erro=%s", type(e).__name__, e)
+
+            df_exec = self.ler_exec_df()
+            df_reg = self.ler_reg_df()
+
+            df_exec = self._preparar_exec_df(df_exec)
+
+            df_exec = self._converter_tudo_para_texto(df_exec)
+            df_reg = self._converter_tudo_para_texto(df_reg)
+
+            self.ultima_execucao = datetime.now(TZ)
+            self.proxima_execucao = self.ultima_execucao + timedelta(seconds=self.intervalo_segundos)
+
+            self.logger.info(
+                "sincronizador_planilhas_arquivos ultima_execucao=%s df_exec_shape=%s df_reg_shape=%s",
+                self.ultima_execucao.isoformat(),
+                getattr(df_exec, "shape", None),
+                getattr(df_reg, "shape", None),
+            )
+
+            if self.callback_atualizacao:
+                try:
+                    self.callback_atualizacao(df_exec, df_reg)
+                except Exception as e:
+                    self.logger.error("callback_atualizacao_erro tipo=%s erro=%s", type(e).__name__, e)
+        finally:
+            if not self._primeira_sincronia.is_set():
+                self._primeira_sincronia.set()
 
     def _loop(self):
         while not self._parar:
@@ -2890,33 +2903,98 @@ class JanelaServidor(QMainWindow):
     def atualizar_mapeamento(self, df_exec, df_reg):
         self.atualizar_dados(df_exec, df_reg)
 
+    def _metodo_upper(self, valor: Any) -> str:
+        texto = str(valor or "").strip()
+        if texto.lower().endswith(".py"):
+            texto = texto[:-3]
+        return texto.upper()
+
+    def _metodos_locais_upper(self) -> set:
+        nomes = set()
+        for itens in self.mapeamento.values():
+            for nome in itens.keys():
+                nomes.add(self._metodo_upper(nome))
+        return nomes
+
+    def _garantir_dt_full(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            return pd.DataFrame()
+        df_local = df.copy()
+        if "dt_full" in df_local.columns:
+            try:
+                if not pd.api.types.is_datetime64_any_dtype(df_local["dt_full"]):
+                    df_local["dt_full"] = pd.to_datetime(
+                        df_local["dt_full"], dayfirst=True, errors="coerce"
+                    )
+            except Exception:
+                df_local["dt_full"] = pd.to_datetime(
+                    df_local["dt_full"], dayfirst=True, errors="coerce"
+                )
+            return df_local
+
+        cols = {c.lower(): c for c in df_local.columns}
+        c_data = cols.get("data_exec")
+        c_hora = cols.get("hora_exec")
+        if not c_data:
+            return df_local
+
+        data_txt = df_local[c_data].astype(str).str.strip()
+        if c_hora:
+            hora_txt = df_local[c_hora].astype(str).str.strip()
+            combinado = (data_txt + " " + hora_txt).str.strip()
+        else:
+            combinado = data_txt
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            df_local["dt_full"] = pd.to_datetime(
+                combinado, dayfirst=True, errors="coerce"
+            )
+        return df_local
+
+    def _filtrar_execucoes_de_hoje(self):
+        df_local = self._garantir_dt_full(self.df_exec)
+        if df_local.empty:
+            return pd.DataFrame(), {}
+        if "dt_full" not in df_local.columns:
+            return pd.DataFrame(), {}
+        try:
+            hoje = datetime.now(TZ).date()
+            df_dia = df_local[df_local["dt_full"].dt.date == hoje].copy()
+            cols = {c.lower(): c for c in df_dia.columns}
+            c_met = cols.get("metodo_automacao")
+            if c_met:
+                df_dia["_metodo_upper"] = df_dia[c_met].map(self._metodo_upper)
+                locais = self._metodos_locais_upper()
+                if locais:
+                    df_dia = df_dia[df_dia["_metodo_upper"].isin(locais)]
+                df_dia["_norm_key"] = df_dia["_metodo_upper"].map(NormalizadorDF.norm_key)
+            return df_dia, {c.lower(): c for c in df_dia.columns}
+        except Exception:
+            return pd.DataFrame(), {}
+
     def _recalcular_resumos_execucao(self):
         """Calcula listas de SUCESSO/FALHA/OUTROS para o dia, uma vez por atualização de planilha."""
         self._resumo_sucesso = []
         self._resumo_falhas = []
         self._resumo_outros = []
 
-        df = self.df_exec.copy()
-        if df.empty:
+        df_dia, cols = self._filtrar_execucoes_de_hoje()
+        if df_dia.empty:
             return
 
-        if "dt_full" not in df.columns:
-            return
-
-        cols = {c.lower(): c for c in df.columns}
         c_met = cols.get("metodo_automacao")
         c_stat = cols.get("status")
         if not c_met or not c_stat:
             return
 
-        hoje = datetime.now(TZ).date()
         try:
-            df_hj = df[df["dt_full"].dt.date == hoje].sort_values("dt_full", ascending=False)
+            df_ord = df_dia.sort_values("dt_full", ascending=False)
         except Exception:
-            return
+            df_ord = df_dia
 
-        for _, r in df_hj.iterrows():
-            m = str(r[c_met])
+        for _, r in df_ord.iterrows():
+            m = self._metodo_upper(r[c_met])
             s = str(r[c_stat]).upper()
             h = r["dt_full"].strftime("%H:%M") if pd.notna(r["dt_full"]) else "-"
             item_txt = f"{h} - {m} ({s})"
@@ -3066,7 +3144,7 @@ class JanelaServidor(QMainWindow):
             self._on_busca_text_changed(self.input_busca.text())
 
     def _preencher_cards(self):
-        df = self.df_exec.copy()
+        df, cols = self._filtrar_execucoes_de_hoje()
         if df.empty:
             execs_vazios = self.executor.snapshot_execucao()
             for met, card in self.cards.items():
@@ -3098,16 +3176,6 @@ class JanelaServidor(QMainWindow):
                     card.definir_status_visual(status_txt)
             return
 
-        if "dt_full" not in df.columns:
-            return
-
-        try:
-            hoje = datetime.now(TZ).date()
-            df = df[df["dt_full"].dt.date == hoje]
-        except Exception:
-            return
-
-        cols = {c.lower(): c for c in df.columns}
         c_met = cols.get("metodo_automacao")
         c_stat = cols.get("status")
         c_modo = cols.get("modo_execucao")
@@ -3115,7 +3183,8 @@ class JanelaServidor(QMainWindow):
             return
 
         try:
-            df["_norm_key"] = df[c_met].apply(NormalizadorDF.norm_key)
+            if "_norm_key" not in df.columns:
+                df = df.assign(_norm_key=df[c_met].apply(NormalizadorDF.norm_key))
             grouped = df.sort_values("dt_full", ascending=False).groupby("_norm_key")
         except Exception:
             return
@@ -3545,8 +3614,19 @@ def main():
         )
         sincronizador_holder["obj"] = sincronizador
 
-        if not primeira_sincronia.wait(timeout=120):
-            logger.warning("sincronizador_primeira_execucao_timeout aguardando_planilhas")
+        aguardou_sync = sincronizador.aguardar_primeira_execucao(timeout=180)
+        if not aguardou_sync:
+            logger.warning("sincronizador_primeira_execucao_timeout aguardando_bigquery")
+
+        if not primeira_sincronia.wait(timeout=60):
+            logger.warning("callback_primeira_execucao_timeout aguardando_planilhas")
+
+        if not ARQ_XLSX_AUTEXEC.exists() or not ARQ_XLSX_REG.exists():
+            logger.warning(
+                "planilhas_nao_encontradas apos_sync autexec=%s reg=%s",
+                ARQ_XLSX_AUTEXEC.exists(),
+                ARQ_XLSX_REG.exists(),
+            )
 
         try:
             df_exec_inicial = sync_holder.get("df_exec", pd.DataFrame())
