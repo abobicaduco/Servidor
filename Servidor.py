@@ -2542,6 +2542,7 @@ class JanelaServidor(QMainWindow):
         self._resumo_sucesso = []
         self._resumo_falhas = []
         self._resumo_outros = []
+        self._status_execucao_hoje = {}
 
         # system tray
         self.tray_icon: Optional[QSystemTrayIcon] = None
@@ -2870,6 +2871,7 @@ class JanelaServidor(QMainWindow):
 
         # recalcula resumos (sucesso/falha/outros) só quando planilhas mudam
         self._recalcular_resumos_execucao()
+        self._calcular_status_execucao()
 
         if chaves_mudaram or abas_vazias:
             QTimer.singleShot(0, self._reconstruir_abas)
@@ -2967,6 +2969,93 @@ class JanelaServidor(QMainWindow):
                 self._resumo_falhas.append(item_txt)
             else:
                 self._resumo_outros.append(item_txt)
+
+    def _normalizar_nome_metodo(self, nome: str):
+        if not nome:
+            return ""
+        texto = str(nome).strip()
+        if texto.lower().endswith(".py"):
+            texto = texto[:-3]
+        return texto.upper()
+
+    def _normalizar_horarios_texto(self, texto: str):
+        if not texto:
+            return []
+        t = str(texto).strip().lower()
+        if t in {"sem", "sob demanda", "sob_demanda", "sob-demanda"}:
+            return []
+        partes = re.split(r"[,\s;/]+", t)
+        horarios = []
+        for p in partes:
+            p = p.strip()
+            if not p:
+                continue
+            if re.fullmatch(r"\d{1,2}:\d{2}", p):
+                horarios.append(p)
+        return horarios
+
+    def _dias_semana_validos(self, texto: str):
+        if not texto:
+            return set(range(7))
+        dias = set()
+        partes = re.split(r"[,/;\s]+", str(texto).strip().lower())
+        for p in partes:
+            p = p.strip()
+            if not p:
+                continue
+            if p in MAPA_DIAS_SEMANA:
+                dias.add(MAPA_DIAS_SEMANA[p])
+            elif p == "dias_uteis":
+                dias.update({0, 1, 2, 3, 4})
+            elif p == "fds":
+                dias.update({5, 6})
+        if not dias:
+            dias = set(range(7))
+        return dias
+
+    def _calcular_status_execucao(self):
+        df_dia, cols = self._filtrar_execucoes_de_hoje()
+        mapa_exec = {}
+        c_met = cols.get("metodo_automacao")
+        if c_met:
+            for _, row in df_dia.iterrows():
+                nome = self._normalizar_nome_metodo(row.get(c_met))
+                mapa_exec.setdefault(nome, []).append(row.get("dt_full"))
+
+        agora = datetime.now(TZ)
+        status = {}
+        for _, metodos in self.mapeamento.items():
+            for metodo, info in metodos.items():
+                nome_norm = self._normalizar_nome_metodo(metodo)
+                registro = info.get("registro") or {}
+                horarios = self._normalizar_horarios_texto(registro.get("horario") or "")
+                dias_validos = self._dias_semana_validos(registro.get("dia_semana") or "")
+                previstos = len(horarios) if agora.weekday() in dias_validos else 0
+                execucoes = mapa_exec.get(nome_norm, [])
+                executados = len(execucoes)
+                faltantes = previstos - executados
+                proxima = "-"
+                if horarios:
+                    instantes = []
+                    for h_txt in horarios:
+                        try:
+                            h, m = [int(x) for x in h_txt.split(":")]
+                            instantes.append(
+                                agora.replace(hour=h, minute=m, second=0, microsecond=0)
+                            )
+                        except Exception:
+                            continue
+                    if instantes:
+                        futuros = [d for d in instantes if d >= agora]
+                        alvo = min(futuros) if futuros else min(instantes)
+                        proxima = alvo.strftime("%H:%M")
+                status[nome_norm] = {
+                    "executados": executados,
+                    "previstos": previstos,
+                    "faltantes": faltantes if faltantes > 0 else 0,
+                    "proxima": proxima,
+                }
+        self._status_execucao_hoje = status
 
     def _reconstruir_abas(self):
         if self.nav_list is None or self.stack is None:
@@ -3113,6 +3202,10 @@ class JanelaServidor(QMainWindow):
             for met, card in self.cards.items():
                 inf = self.infos.get(met, {})
                 card.lbl_area.setText(f"ÁREA: {inf.get('area_solicitante', '-')}")
+                info_exec = self._status_execucao_hoje.get(self._normalizar_nome_metodo(met), {})
+                card.lbl_tempo_exec.setText(
+                    f"HOJE: {info_exec.get('executados', 0)}/{info_exec.get('previstos', 0)} | PRÓXIMA: {info_exec.get('proxima', '-')}"
+                )
                 prox = "-"
                 if self.get_prox_exec:
                     try:
@@ -3157,6 +3250,10 @@ class JanelaServidor(QMainWindow):
             norm = NormalizadorDF.norm_key(met)
             inf = self.infos.get(met, {})
             card.lbl_area.setText(f"ÁREA: {inf.get('area_solicitante', '-')}")
+            info_exec = self._status_execucao_hoje.get(self._normalizar_nome_metodo(met), {})
+            card.lbl_tempo_exec.setText(
+                f"HOJE: {info_exec.get('executados', 0)}/{info_exec.get('previstos', 0)} | PRÓXIMA: {info_exec.get('proxima', '-')}"
+            )
 
             prox = "-"
             if self.get_prox_exec:
@@ -3232,6 +3329,13 @@ class JanelaServidor(QMainWindow):
 
         # PENDENTES (usar agendador)
         lista_pendentes = []
+        if self._status_execucao_hoje:
+            for nome, info in self._status_execucao_hoje.items():
+                faltantes = info.get("faltantes", 0)
+                proxima = info.get("proxima", "-")
+                if faltantes > 0:
+                    alvo = proxima if proxima and proxima != "-" else "--:--"
+                    lista_pendentes.append(f"{alvo} - {nome} ({faltantes}x)")
         if hasattr(self, "agendador") and self.agendador:
             snapshot = self.agendador.snapshot_agendamentos()
             agora = datetime.now(TZ)
