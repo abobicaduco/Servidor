@@ -1535,6 +1535,8 @@ class SincronizadorPlanilhas:
         self.proxima_execucao: Optional[datetime] = None
         self._parar = False
         self._pausado = False
+        self._lock_execs = threading.Lock()
+        self._executados_hoje = set()
 
         DIR_XLSX_AUTEXEC.mkdir(parents=True, exist_ok=True)
         DIR_XLSX_REG.mkdir(parents=True, exist_ok=True)
@@ -1570,6 +1572,34 @@ class SincronizadorPlanilhas:
                 continue
             df2[col] = df2[col].map(lambda x: "" if pd.isna(x) else str(x))
         return df2
+
+    def _atualizar_executados_hoje(self, df_exec: pd.DataFrame):
+        metodos = set()
+        try:
+            if df_exec is not None and not df_exec.empty and "dt_full" in df_exec.columns:
+                cols = {c.lower(): c for c in df_exec.columns}
+                c_met = cols.get("metodo_automacao")
+                if c_met:
+                    hoje = datetime.now(TZ).date()
+                    df_dia = df_exec[df_exec["dt_full"].dt.date == hoje]
+                    if not df_dia.empty:
+                        metodos = {
+                            NormalizadorDF.norm_key(v)
+                            for v in df_dia[c_met].dropna().astype(str)
+                        }
+        except Exception as e:
+            self.logger.error(
+                "sincronizador_atualizar_executados_erro tipo=%s erro=%s",
+                type(e).__name__,
+                e,
+            )
+        with self._lock_execs:
+            self._executados_hoje = metodos
+
+    def ja_executou_hoje(self, metodo: str) -> bool:
+        norm = NormalizadorDF.norm_key(metodo)
+        with self._lock_execs:
+            return norm in self._executados_hoje
 
     def _preparar_exec_df(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -1729,6 +1759,8 @@ class SincronizadorPlanilhas:
 
         df_exec = self._converter_tudo_para_texto(df_exec)
         df_reg = self._converter_tudo_para_texto(df_reg)
+
+        self._atualizar_executados_hoje(df_exec)
 
         self.ultima_execucao = datetime.now(TZ)
         self.proxima_execucao = self.ultima_execucao + timedelta(seconds=self.intervalo_segundos)
@@ -2502,7 +2534,7 @@ class JanelaServidor(QMainWindow):
     sig_marcar_ocupado = Signal(str, bool)
     sig_log = Signal(str)
 
-    def __init__(self, logger, executor, descobridor, sincronizador, monitor_recursos, get_proxima_exec_str_callback=None, get_status_agendamento_callback=None):
+    def __init__(self, logger, executor, descobridor, sincronizador, monitor_recursos, get_proxima_exec_str_callback=None, get_status_agendamento_callback=None, verificar_execucao_hoje=None):
         super().__init__()
         self.logger = logger
         self.executor = executor
@@ -2511,6 +2543,7 @@ class JanelaServidor(QMainWindow):
         self.monitor_recursos = monitor_recursos
         self.get_prox_exec = get_proxima_exec_str_callback
         self.get_status_agendamento = get_status_agendamento_callback
+        self.verificar_execucao_hoje = verificar_execucao_hoje
 
         self.mapeamento = {}
         self.df_exec = pd.DataFrame()
@@ -3331,6 +3364,10 @@ class JanelaServidor(QMainWindow):
                     path = its[metodo]["path"]
                     break
 
+        if self.verificar_execucao_hoje and self.verificar_execucao_hoje(metodo):
+            self.logger.info("acao_executar_pulado_execucao_hoje metodo=%s", metodo)
+            return
+
         if path:
             if self.executor.enfileirar(
                 metodo,
@@ -3522,6 +3559,21 @@ def main():
         agendador_holder = {"ag": None}
         sincronizador_holder = {"obj": None}
 
+        def ja_executou_hoje(metodo: str) -> bool:
+            sin = sincronizador_holder.get("obj")
+            if sin is None:
+                return False
+            try:
+                return sin.ja_executou_hoje(metodo)
+            except Exception as e:
+                logger.error(
+                    "verificar_execucao_hoje_erro metodo=%s tipo=%s erro=%s",
+                    metodo,
+                    type(e).__name__,
+                    e,
+                )
+                return False
+
         def callback_planilhas(df_exec, df_reg):
             sync_holder["df_exec"] = df_exec
             sync_holder["df_reg"] = df_reg
@@ -3588,6 +3640,9 @@ def main():
             return True
 
         def enfileirar_solicitacao(metodo, caminho, ctx, quando):
+            if ja_executou_hoje(metodo):
+                logger.info("enfileirar_solicitacao_pulado_execucao_hoje metodo=%s", metodo)
+                return
             executor.enfileirar(metodo, caminho, ctx, quando)
         notificador_email = NotificadorEmail(logger)
 
@@ -3612,6 +3667,9 @@ def main():
             return sync_holder["df_exec"]
 
         def enfileirar_agendado(metodo, caminho, ctx, quando):
+            if ja_executou_hoje(metodo):
+                logger.info("enfileirar_agendado_pulado_execucao_hoje metodo=%s", metodo)
+                return
             executor.enfileirar(metodo, caminho, ctx, quando)
 
         agendador = AgendadorMetodos(
@@ -3695,6 +3753,7 @@ def main():
             get_status_agendamento_callback=lambda m: agendador_holder["ag"].get_status_agendamento(m)
             if agendador_holder["ag"] is not None
             else "",
+            verificar_execucao_hoje=ja_executou_hoje,
         )
 
         janela.mapeamento = obter_mapeamento_global()
