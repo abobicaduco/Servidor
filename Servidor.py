@@ -3741,7 +3741,25 @@ def main():
         )
 
         def obter_mapeamento_ag():
-            return obter_mapeamento_global()
+            mapeamento = obter_mapeamento_global()
+            filtrado = {}
+
+            for aba, itens in mapeamento.items():
+                for metodo, info in itens.items():
+                    registro = info.get("registro") or {}
+                    status = str(registro.get("status_automacao") or "").strip().upper()
+                    if status != "ATIVA":
+                        continue
+
+                    metodo_registro = NormalizadorDF.norm_key(registro.get("metodo_automacao"))
+                    metodo_fs = NormalizadorDF.norm_key(metodo)
+
+                    if not metodo_registro or metodo_registro != metodo_fs:
+                        continue
+
+                    filtrado.setdefault(aba, {})[metodo] = info
+
+            return filtrado
 
         def obter_exec_df_ag():
             return sync_holder["df_exec"]
