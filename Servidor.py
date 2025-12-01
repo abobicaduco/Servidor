@@ -1680,16 +1680,13 @@ class SincronizadorPlanilhas:
         df_exec = pd.DataFrame()
         df_reg = pd.DataFrame()
 
-        # reset pastas XLSX
         for pasta in (DIR_XLSX_AUTEXEC, DIR_XLSX_REG):
             try:
-                if pasta.exists():
-                    shutil.rmtree(pasta)
                 pasta.mkdir(parents=True, exist_ok=True)
-                self.logger.info("sincronizador_reset_pasta_ok pasta=%s", str(pasta))
+                self.logger.info("sincronizador_garantir_pasta_ok pasta=%s", str(pasta))
             except Exception as e:
                 self.logger.error(
-                    "sincronizador_reset_pasta_erro pasta=%s tipo=%s erro=%s",
+                    "sincronizador_garantir_pasta_erro pasta=%s tipo=%s erro=%s",
                     str(pasta),
                     type(e).__name__,
                     e,
