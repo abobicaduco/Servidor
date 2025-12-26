@@ -16,8 +16,11 @@ REM 2. Se falhou download, avisa mas continua
 if not exist "node_bin" (
     echo [AVISO] Nao foi possivel baixar o Node.js.
     echo O servidor rodara em modo API-ONLY ^(sem interface visual^).
-    goto :START_SERVER
+    REM Nao da goto server direto, vamos tentar instalar libs python antes
 )
+
+REM 2.1 Garante Dependencias Python (SSL Bypass)
+call install_requirements_proxy.bat
 
 REM 3. Configura Node se existe
 echo [OK] Node.js detectado!

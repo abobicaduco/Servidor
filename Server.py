@@ -12,10 +12,26 @@ from collections import defaultdict
 from typing import List, Dict, Set, Optional
 
 # Third-party imports
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import uvicorn
+try:
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel
+    import uvicorn
+    LIBS_OK = True
+except ImportError:
+    LIBS_OK = False
+    print("AVISO: Bibliotecas faltando. O servidor tentará instalar automaticamente.")
+    
+    # Dummy classes to prevent crash during parsing of routes
+    class BaseModel: pass
+    class DummyApp:
+        def add_middleware(self, *args, **kwargs): pass
+        def get(self, *args, **kwargs): return lambda func: func
+        def post(self, *args, **kwargs): return lambda func: func
+    
+    # Mock FastAPI class
+    def FastAPI(): return DummyApp()
+    class CORSMiddleware: pass # Dummy
 
 # Pandas Logic (same as Servidor.py)
 try:
@@ -542,18 +558,23 @@ class HeadlessEngine:
             time.sleep(1)
 
 # ==============================================================================
+# ==============================================================================
 # FASTAPI APP
 # ==============================================================================
-app = FastAPI()
-engine = HeadlessEngine()
+if LIBS_OK:
+    app = FastAPI()
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app = None
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+engine = HeadlessEngine()
 
 class RunRequest(BaseModel):
     path: str
@@ -632,14 +653,18 @@ def start_frontend_process():
 
 if __name__ == "__main__":
     # 1. Check Python Libs
-    try:
-        import fastapi
-        import uvicorn
-        import pandas
-        import pandas_gbq
-    except ImportError:
-        install_py_libs()
-        
+    if not LIBS_OK:
+        print("Bibliotecas criticas (FastAPI/Uvicorn) nao encontradas.")
+        print("Tentando instalar via install_requirements_proxy.bat...")
+        try:
+             # Tenta rodar o bat de install
+             subprocess.check_call("install_requirements_proxy.bat", shell=True)
+             print("Instalacao concluida. Reinicie o servidor.")
+             sys.exit(0)
+        except Exception as e:
+             print(f"Falha na auto-instalacao: {e}")
+             sys.exit(1)
+
     # 2. Setup Frontend (npm install)
     frontend_ok = False
     try:
