@@ -1213,11 +1213,7 @@ class MainWindow(QMainWindow):
         else:
              self.lbl_countdown.setStyleSheet("color: #4B5563; font-size: 10px; font-weight: 700;")
              
-    def closeEvent(self, event):
-        self.worker.stop()
-        event.accept()
 
-                self.monitor_list.addItem(w_item)
 
     def on_search(self):
         self.filter_view()
