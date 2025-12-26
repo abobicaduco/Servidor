@@ -763,17 +763,18 @@ if __name__ == "__main__":
         print("Aborting server startup as requested.")
         sys.exit(1)
 
-    # 3. Start Backend Engine (NOW safe to start)
-    print("Initializing Backend Engine...")
-    engine = HeadlessEngine()
-
-    # 4. Start Frontend Background Process
+    # 3. Start Frontend Background Process (Start BEFORE Backend Engine)
     frontend_proc = None
     if frontend_ok:
         try:
             frontend_proc = start_frontend_process()
+            print("Web Frontend Launching...")
         except Exception as e:
             print(f"Failed to start frontend: {e}")
+
+    # 4. Start Backend Engine (Delayed to let Frontend take focus)
+    print("Initializing Backend Engine...")
+    engine = HeadlessEngine()
             
     # Auto-Open Browser Logic
     def open_browser():
