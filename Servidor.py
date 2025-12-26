@@ -1216,8 +1216,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.worker.stop()
         event.accept()
-                w_item.setForeground(QColor("#34D399"))
-                w_item.setFont(QFont("Segoe UI", 12, QFont.Bold))
+
                 self.monitor_list.addItem(w_item)
 
     def on_search(self):
