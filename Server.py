@@ -715,6 +715,8 @@ def start_frontend_process():
     frontend_dir = Path.cwd() / "web_frontend"
     vite_path = frontend_dir / "node_modules" / "vite" / "bin" / "vite.js"
     
+    print(f"DEBUG: Checking Vite Path: {vite_path} (Exists: {vite_path.exists()})")
+
     # 1. Determine Node Executable (Temp or Portable)
     node_exe = None
     temp_dir = Path(os.getenv("TEMP")) / "cronpython_node"
@@ -723,16 +725,19 @@ def start_frontend_process():
     found_node = list(temp_dir.rglob("node.exe"))
     if found_node:
         node_exe = found_node[0]
+        print(f"DEBUG: Found Node (Temp): {node_exe}")
     else:
         # Check Project Binaries
         portable_node = Path.cwd() / "binaries" / "node" / "node.exe"
         if portable_node.exists():
             node_exe = portable_node
+            print(f"DEBUG: Found Node (Portable): {node_exe}")
+        else:
+            print("DEBUG: Node.exe not found in Temp or Binaries")
     
     # 2. Launch Vite Directly (Bypasses system PATH issues)
     if node_exe and vite_path.exists():
         print(f"Starting Vite Directly: {node_exe} {vite_path}")
-        # Add host flag to ensure it's accessible
         return subprocess.Popen([str(node_exe), str(vite_path), "--host"], cwd=frontend_dir)
 
     elif shutil.which("npm"):
