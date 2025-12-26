@@ -616,23 +616,55 @@ import shutil
 import webbrowser
 
 def setup_frontend():
-    # 0. AUTO-CONFIG: Node Portable
-    portable_node = Path.cwd() / "binaries" / "node"
+def setup_frontend():
+    # 0. AUTO-CONFIG: Node Portable (Extract to TEMP to avoid Path Length issues)
+    # Using a short path in %TEMP% ensures we don't hit 260 char limit
+    temp_dir = Path(os.getenv("TEMP")) / "cronpython_node"
+    portable_node = temp_dir / "node"
     portable_zip = Path.cwd() / "binaries" / "node_bundle.zip"
     
-    # Auto-Extract if missing
-    if not portable_node.exists() and portable_zip.exists():
-        print("Extracting Node.js binaries (First Run)...")
-        import zipfile
-        try:
-             with zipfile.ZipFile(portable_zip, 'r') as zip_ref:
-                 zip_ref.extractall(Path.cwd() / "binaries")
-             print("Extraction Complete.")
-        except Exception as e:
-             print(f"Failed to extract Node.js: {e}")
+    # Auto-Extract if missing in TEMP
+    if not portable_node.exists():
+        if portable_zip.exists():
+            print(f"Extracting Node.js binary to {temp_dir} (Short Path)...")
+            import zipfile
+            try:
+                 if temp_dir.exists(): shutil.rmtree(temp_dir)
+                 temp_dir.mkdir(parents=True, exist_ok=True)
+                 with zipfile.ZipFile(portable_zip, 'r') as zip_ref:
+                     zip_ref.extractall(temp_dir)
+                 print("Extraction Complete.")
+                 
+                 # The zip structure is binaries/node/... or just node/...
+                 # We need to find where 'node.exe' ended up
+                 found = list(temp_dir.rglob("node.exe"))
+                 if found:
+                     portable_node = found[0].parent
+                     print(f"Node.exe found at {portable_node}")
+                 else:
+                     print("ERRO: node.exe not found after extraction")
+                     
+            except Exception as e:
+                 print(f"Failed to extract Node.js: {e}")
+        else:
+             print("Zip bundle not found in binaries/node_bundle.zip")
 
     node_exe = None
     npm_cli = None
+    
+    if portable_node.exists():
+        print(f"Auto-Config: Found Portable Node at {portable_node}")
+        # Add to PATH (still useful for other things)
+        os.environ["PATH"] = str(portable_node) + os.pathsep + os.environ["PATH"]
+        os.environ["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+        
+        node_exe = portable_node / "node.exe"
+        # Find npm-cli.js dynamically just in case version changes
+        found_npm = list(portable_node.rglob("npm-cli.js"))
+        if found_npm:
+             npm_cli = found_npm[0]
+        else:
+             npm_cli = portable_node / "node_modules" / "npm" / "bin" / "npm-cli.js"
     
     if portable_node.exists():
         print(f"Auto-Config: Found Portable Node at {portable_node}")
@@ -673,15 +705,29 @@ def setup_frontend():
 def start_frontend_process():
     frontend_dir = Path.cwd() / "web_frontend"
     
-    portable_node = Path.cwd() / "binaries" / "node"
-    if portable_node.exists():
-        node_exe = portable_node / "node.exe"
-        npm_cli = portable_node / "node_modules" / "npm" / "bin" / "npm-cli.js"
-        
-        print(f"Starting Web Frontend via Direct Node: {node_exe} {npm_cli} run dev")
-        # Run directly: node npm-cli.js run dev
+    # Check TEMP location first
+    temp_dir = Path(os.getenv("TEMP")) / "cronpython_node"
+    node_exe = None
+    npm_cli = None
+    
+    found_node = list(temp_dir.rglob("node.exe"))
+    if found_node:
+        node_exe = found_node[0]
+        found_npm = list(node_exe.parent.rglob("npm-cli.js"))
+        if found_npm:
+            npm_cli = found_npm[0]
+
+    if node_exe and npm_cli:
+        print(f"Starting Web Frontend via Direct Node (Temp): {node_exe} {npm_cli} run dev")
         return subprocess.Popen([str(node_exe), str(npm_cli), "run", "dev"], cwd=frontend_dir)
     
+    # Fallback checks (Project dir or System)
+    portable_node = Path.cwd() / "binaries" / "node"
+    if portable_node.exists() and (portable_node / "node.exe").exists():
+         node_exe = portable_node / "node.exe"
+         npm_cli = portable_node / "node_modules" / "npm" / "bin" / "npm-cli.js"
+         return subprocess.Popen([str(node_exe), str(npm_cli), "run", "dev"], cwd=frontend_dir)
+
     elif shutil.which("npm"):
          print("Starting Web Frontend via System NPM...")
          return subprocess.Popen("npm run dev", shell=True, cwd=frontend_dir)
