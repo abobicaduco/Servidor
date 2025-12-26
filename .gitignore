@@ -17,3 +17,6 @@ coverage/
 .vscode/
 venv/
 env/
+
+# Allow binaries/node despite generally ignoring binaries locally
+!binaries/node/

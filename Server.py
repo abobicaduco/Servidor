@@ -626,7 +626,9 @@ import shutil
 import webbrowser
 
 def setup_frontend():
-    if not shutil.which("npm"):
+    # Check portable first
+    portable_node = Path("binaries/node")
+    if not shutil.which("npm") and not portable_node.exists():
         print("WARNING: Node.js (npm) not found. Frontend cannot be installed/started.")
         print("To fix: Install Node.js or download the portable version and add to PATH.")
         return False
