@@ -861,9 +861,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("C6 RPA Dashboard")
         self.resize(1380, 850)
         
-        # Prevent Sleep
-        self.prevent_sleep()
-
+        
         # Worker
         self.worker = EngineWorker()
         self.worker.scripts_discovered.connect(self.on_discovery)
@@ -1064,6 +1062,9 @@ class MainWindow(QMainWindow):
         # Set Default Page -> Automations
         self.stack.setCurrentIndex(0)
         self.btn_autos.setChecked(True)
+
+        # Prevent Sleep (Now Safe)
+        self.prevent_sleep()
 
     def create_nav_btn(self, text, icon_name, checked):
         btn = QPushButton(text)
