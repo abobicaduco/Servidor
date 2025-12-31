@@ -320,11 +320,21 @@ class MainWindow(QMainWindow):
         # 4. Sync Cards
         current_script_names = set(self.worker.scripts_map.keys())
         needs_layout_update = False
+        
+        # Add New Cards
         for name in current_script_names:
             if name not in self.cards:
                 card = ScriptCard(self.worker)
                 self.cards[name] = card
                 needs_layout_update = True
+        
+        # Remove Stale Cards (Strict Sync as requested)
+        # Iterate over a copy of keys since we modify the dict
+        for name in list(self.cards.keys()):
+             if name not in current_script_names:
+                 self.cards[name].deleteLater()
+                 del self.cards[name]
+                 needs_layout_update = True
         
         if needs_layout_update:
             self.refresh_grid_visibility()

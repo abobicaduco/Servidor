@@ -24,20 +24,31 @@ from frontend.ui import MainWindow
 load_dotenv()
 
 def get_root_path():
+    # User's logic: Path.home() + Specific Cloud Folder
     home = Path.home()
-    possible_roots = [
-        home / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A",
-        home / "Meu Drive/C6 CTVM",
-        home / "C6 CTVM",
-    ]
-    for p in possible_roots:
-        if p.exists(): return p
-    return home / "C6 CTVM"
+    
+    # Priority 1: Exact User Request
+    p1 = home / "C6 CTVM LTDA, BANCO C6 S.A. e C6 HOLDING S.A"
+    
+    # Priority 2: Alternative (for diff environments)
+    p2 = home / "Meu Drive (carlosfrenesi01@gmail.com)/C6 CTVM"
+    p3 = home / "Meu Drive/C6 CTVM"
+    
+    if p1.exists(): return p1
+    if p2.exists(): return p2
+    if p3.exists(): return p3
+    
+    # Fallback to current dir's parent chain if needed or just return raw
+    return home
 
 ROOT_DRIVE = get_root_path()
+# The sub-path requested: 
 BASE_PATH = ROOT_DRIVE / "Mensageria e Cargas Operacionais - 11.CelulaPython/graciliano/automacoes"
+
+# Debug Path
+print(f"[INIT] Resolved BASE_PATH: {BASE_PATH}")
 if not BASE_PATH.exists():
-    BASE_PATH = ROOT_DRIVE / "graciliano/automacoes"
+    print(f"[WARNING] BASE_PATH does not exist on disk!")
 
 TEMP_DIR = Path(os.environ.get("TEMP")) / "C6_RPA_EXEC"
 TEMP_DIR.mkdir(exist_ok=True)
@@ -124,13 +135,18 @@ class EngineWorker(threading.Thread):
 
     def discover(self):
         found_files = {}
+        print(f"[DISCOVERY] Scanning {BASE_PATH} for .py files...")
         for root, dirs, files in os.walk(str(BASE_PATH)):
-            if "metodos" in Path(root).parts or "metodos" in str(Path(root)).lower():
+            # Normalize path check just in case
+            lower_root = str(root).lower()
+            if "metodos" in lower_root:
                 for f in files:
                     if f.endswith(".py"):
                         # USE CLEAN KEY
                         key = self.clean_key(f) 
                         found_files[key] = Path(root) / f
+        
+        print(f"[DISCOVERY] Found {len(found_files)} Python files in 'metodos'.")
         
         if not CONFIG_FILE.exists(): return
 
@@ -138,6 +154,10 @@ class EngineWorker(threading.Thread):
             df = pd.read_excel(CONFIG_FILE)
             df = df.fillna('')
             df.columns = [c.lower() for c in df.columns]
+            
+            # Temporary dicts for strict sync
+            new_map = {}
+            new_config = {}
             
             for _, row in df.iterrows():
                 raw_name = str(row.get('script_name', '')).strip()
@@ -147,13 +167,14 @@ class EngineWorker(threading.Thread):
                 clean_name = self.clean_key(raw_name)
                 
                 if clean_name not in found_files:
+                     # Skip if not found on disk
                      continue
                 
                 active_val = str(row.get('is_active', row.get('active', ''))).lower()
                 is_active = active_val in ['true', '1', 'sim', 's', 'on', 'verdadeiro']
                 
                 if is_active:
-                    self.scripts_map[clean_name] = found_files[clean_name]
+                    new_map[clean_name] = found_files[clean_name]
                     
                     cron_raw = row.get('cron_schedule', row.get('cron', ''))
                     cron_sched = "MANUAL"
@@ -164,15 +185,21 @@ class EngineWorker(threading.Thread):
                             cron_sched = {int(float(p)) for p in parts}
                         except: pass
                     
-                    self.scripts_config[clean_name] = {
+                    new_config[clean_name] = {
                         'area': str(row.get('area_name', row.get('area', 'GERAL'))).upper(),
                         'cron': cron_sched,
                         'target_runs': row.get('target_runs', 0),
-                        'display_name': raw_name # Keep original for UI
+                        'display_name': raw_name
                     }
                     
+                    # Initialize cache for new items if needed
                     if clean_name not in self.daily_execution_cache:
                         self.daily_execution_cache[clean_name] = 0
+            
+            # Atomic Match Update
+            self.scripts_map = new_map
+            self.scripts_config = new_config
+            print(f"[DISCOVERY] Active & Matched Scripts: {len(self.scripts_config)}")
 
         except Exception as e:
             print(f"Discovery Error: {e}")
