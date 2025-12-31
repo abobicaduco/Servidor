@@ -115,69 +115,70 @@ class EngineWorker(threading.Thread):
                 print(f"Engine Loop Error: {e}")
                 time.sleep(5)
 
+    def clean_key(self, s):
+        # Remove whitespace, non-printable, underscores, extensions
+        s = str(s).lower()
+        if s.endswith('.py'): s = s[:-3]
+        # Keep only alphanumeric
+        return "".join(c for c in s if c.isalnum())
+
     def discover(self):
-        # 1. Scan Files
         found_files = {}
         for root, dirs, files in os.walk(str(BASE_PATH)):
             if "metodos" in Path(root).parts or "metodos" in str(Path(root)).lower():
                 for f in files:
                     if f.endswith(".py"):
-                        key = f[:-3].lower()
+                        # USE CLEAN KEY
+                        key = self.clean_key(f) 
                         found_files[key] = Path(root) / f
         
-        # 2. Read Config
-        if not CONFIG_FILE.exists():
-            return
+        if not CONFIG_FILE.exists(): return
 
         try:
             df = pd.read_excel(CONFIG_FILE)
             df = df.fillna('')
             df.columns = [c.lower() for c in df.columns]
             
-            match_count = 0
             for _, row in df.iterrows():
-                name = str(row.get('script_name', '')).strip().lower()
-                if not name: continue
+                raw_name = str(row.get('script_name', '')).strip()
+                if not raw_name: continue
                 
-                if name not in found_files:
+                # USE CLEAN KEY
+                clean_name = self.clean_key(raw_name)
+                
+                if clean_name not in found_files:
                      continue
                 
                 active_val = str(row.get('is_active', row.get('active', ''))).lower()
                 is_active = active_val in ['true', '1', 'sim', 's', 'on', 'verdadeiro']
                 
                 if is_active:
-                    self.scripts_map[name] = found_files[name]
-                    match_count += 1
+                    self.scripts_map[clean_name] = found_files[clean_name]
                     
-                    # Parse Cron
                     cron_raw = row.get('cron_schedule', row.get('cron', ''))
                     cron_sched = "MANUAL"
-                    
-                    if str(cron_raw).upper() == 'ALL':
-                        cron_sched = "ALL"
+                    if str(cron_raw).upper() == 'ALL': cron_sched = "ALL"
                     elif ',' in str(cron_raw) or isinstance(cron_raw, (int, float)):
                         try:
                             parts = str(cron_raw).replace(',', ' ').split()
                             cron_sched = {int(float(p)) for p in parts}
-                        except:
-                            pass
+                        except: pass
                     
-                    self.scripts_config[name] = {
+                    self.scripts_config[clean_name] = {
                         'area': str(row.get('area_name', row.get('area', 'GERAL'))).upper(),
                         'cron': cron_sched,
-                        'target_runs': row.get('target_runs', 0)
+                        'target_runs': row.get('target_runs', 0),
+                        'display_name': raw_name # Keep original for UI
                     }
                     
-                    if name not in self.daily_execution_cache:
-                        self.daily_execution_cache[name] = 0
+                    if clean_name not in self.daily_execution_cache:
+                        self.daily_execution_cache[clean_name] = 0
 
         except Exception as e:
             print(f"Discovery Error: {e}")
 
     def sync_bq(self):
         try:
-            # Using CURRENT_DATE() strictly as requested to match BigQuery Server Time
-            # or implicitly Session Time zone. 
             q = f"""
             SELECT script_name, status, start_time, duration_seconds
             FROM `datalab-pagamentos.ADMINISTRACAO_CELULA_PYTHON.automacoes_exec`
@@ -185,47 +186,45 @@ class EngineWorker(threading.Thread):
             """
             self.history_df = pandas_gbq.read_gbq(q, project_id=os.environ.get("GOOGLE_CLOUD_PROJECT", "datalab-pagamentos"))
             
-            # DEBUG: Print exact findings
-            print(f"\n[BQ SYNC] Found {len(self.history_df)} execution rows for TODAY.")
-            if not self.history_df.empty:
-                 print(f"[BQ SYNC] Sample Data:\n{self.history_df.head(2).to_string()}")
+            print(f"\n[BQ] Rows Found: {len(self.history_df)}")
             
-            # "Delete cache local... recomece"
+            # Reset Cache
             new_cache = {name: 0 for name in self.scripts_config.keys()}
             
             if not self.history_df.empty:
                 bq_counts = self.history_df.groupby('script_name').size().to_dict()
                 
-                print(f"[BQ SYNC] BQ Counts Summary: {bq_counts}")
-                
-                # DEBUG: Print Config Keys to check against BQ Keys
-                # print(f"[BQ SYNC] Config Keys: {list(new_cache.keys())}")
-                
-                for name, count in bq_counts.items():
-                    norm_name = str(name).strip().lower()
+                matches = 0
+                for bq_name, count in bq_counts.items():
+                    # USE CLEAN KEY
+                    clean_bq_name = self.clean_key(bq_name)
                     
-                    # Direct assignment attempt with debug
-                    if norm_name in new_cache:
-                        new_cache[norm_name] = count
-                        # print(f"[BQ SYNC] Matched {norm_name}: {count}")
+                    if clean_bq_name in new_cache:
+                        new_cache[clean_bq_name] = count
+                        matches += 1
                     else:
-                        # Try to find a partial match or notify?
-                        # Maybe the config name has underscores? "envio_arquivo_conciliacao"?
-                        # But user provided table has "envioarquivoconciliacao"
-                        pass
-                        
+                        print(f"[BQ MISMATCH] BQ: '{bq_name}' -> Clean: '{clean_bq_name}' NOT IN CONFIG")
+                        # Debug keys
+                        # print(f"  Config Keys Sample: {list(new_cache.keys())[:5]}")
+                
+                print(f"[BQ] Matched {matches} scripts with Config.")
+                
+                # CRITICAL SAFETY: If we have BQ rows but 0 matches, SOMETHING IS WRONG.
+                if len(bq_counts) > 0 and matches == 0:
+                    print("CRITICAL ERROR: BigQuery has data but NO matches found in Config. ABORTING SCHEDULE.")
+                    self.bq_verified = False
+                    return
+            
             self.daily_execution_cache = new_cache
             
-            # CRITICAL DEBUG: Print final cache for verified items
-            print(f"[BQ SYNC] Final Cache Verification:")
-            for k, v in self.daily_execution_cache.items():
-                if v > 0:
-                    print(f"  -> {k}: {v}")
+            # Verify
+            non_zero = {k:v for k,v in self.daily_execution_cache.items() if v > 0}
+            print(f"[CACHE VERIFY] Non-Zero Items: {non_zero}")
                 
             self.bq_verified = True
-            print("BQ Sync Success: Cache Overwritten with BQ Data\n")
+            print("BQ Sync Success.\n")
         except Exception as e:
-            self.bq_verified = False # Explicitly fail if query fails
+            self.bq_verified = False
             print(f"BQ Sync Failed: {e}")
 
     def check_schedule(self):
