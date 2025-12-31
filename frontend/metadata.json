@@ -1,0 +1,5 @@
+{
+  "name": "C6 RPA Orchestrator",
+  "description": "Servidor de Orquestração RPA (servidor.py) com integração BigQuery e lógica de agendamento avançada.",
+  "requestFramePermissions": []
+}
