@@ -288,7 +288,8 @@ class EngineWorker(threading.Thread):
                         # COOLDOWN CHECK: Wait 60s after last finish
                         last_finish = self.last_finish_times.get(name, 0)
                         if (now_ts - last_finish) > 60:
-                            print(f"Scheduling {name} (Actual: {actual} / Target Now: {current_target})")
+                            # DEBUG: Show WHY it is scheduling
+                            print(f"Scheduling {name} (Cron: {cron}, Actual: {actual} / Target Now: {current_target})")
                             self.execution_queue.append((0, name, self.scripts_map[name]))
 
     def process_queue(self):
