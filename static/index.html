@@ -4,12 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ServidorAgendamentos - Expansão de Domínio</title>
+  <title>Servidor - Célula Python</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
     rel="stylesheet">
@@ -22,68 +21,63 @@
             jjk: {
               bg: '#050505',
               panel: '#0a0a0f',
-              card: '#11111a',
-              purple: '#a855f7', // Energia Amaldiçoada
-              purpleGlow: '#d8b4fe',
-              blue: '#0ea5e9',   // Gojo Satoru
-              blueGlow: '#7dd3fc',
-              red: '#ef4444',    // Ryomen Sukuna
-              redGlow: '#fca5a5',
-              gold: '#fbbf24',   // Brilho Negro / Kento Nanami
-              silver: '#e2e8f0',
-              muted: '#64748b'
+              purple: '#a855f7',
+              blue: '#0ea5e9',
+              red: '#ef4444',
+              gold: '#eab308',
+              muted: '#8b8b93',
             }
           },
           fontFamily: {
             tech: ['Orbitron', 'sans-serif'],
             body: ['Rajdhani', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace']
+            mono: ['JetBrains Mono', 'monospace'],
           },
           animation: {
-            'aura-purple': 'auraPurple 3s ease-in-out infinite',
-            'aura-red': 'auraRed 3s ease-in-out infinite',
-            'aura-blue': 'auraBlue 3s ease-in-out infinite',
-            'slide-up': 'slideUp 0.4s cubic-bezier(.16,1,.3,1)',
-            'progress': 'progressBar 2s linear infinite',
-            'ping-slow': 'ping 3s cubic-bezier(0, 0, 0.2, 1) infinite',
+            'spin-slow': 'spin 8s linear infinite',
+            'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0.6, 0.6, 1) infinite',
+            'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            'progress': 'progress 1.5s ease-in-out infinite',
+            'aura-purple': 'auraPurple 2s ease-in-out infinite alternate',
           },
           keyframes: {
+            slideUp: {
+              '0%': { transform: 'translateY(20px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            },
+            progress: {
+              '0%': { backgroundPosition: '200% center' },
+              '100%': { backgroundPosition: '-200% center' },
+            },
             auraPurple: {
-              '0%, 100%': { boxShadow: '0 0 15px -2px rgba(168, 85, 247, 0.3), 0 0 30px -5px rgba(168, 85, 247, 0.1)' },
-              '50%': { boxShadow: '0 0 35px 2px rgba(168, 85, 247, 0.6), 0 0 50px 5px rgba(168, 85, 247, 0.2)' },
-            },
-            auraRed: {
-              '0%, 100%': { boxShadow: '0 0 15px -2px rgba(239, 68, 68, 0.3), 0 0 30px -5px rgba(239, 68, 68, 0.1)' },
-              '50%': { boxShadow: '0 0 35px 2px rgba(239, 68, 68, 0.6), 0 0 50px 5px rgba(239, 68, 68, 0.2)' },
-            },
-            auraBlue: {
-              '0%, 100%': { boxShadow: '0 0 15px -2px rgba(14, 165, 233, 0.3), 0 0 30px -5px rgba(14, 165, 233, 0.1)' },
-              '50%': { boxShadow: '0 0 35px 2px rgba(14, 165, 233, 0.6), 0 0 50px 5px rgba(14, 165, 233, 0.2)' },
-            },
-            slideUp: { '0%': { transform: 'translateY(24px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
-            progressBar: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
-          },
-        },
-      },
-    };
+              '0%': { boxShadow: '0 0 10px rgba(168,85,247,0.1), inset 0 0 10px rgba(168,85,247,0.05)' },
+              '100%': { boxShadow: '0 0 25px rgba(168,85,247,0.3), inset 0 0 15px rgba(168,85,247,0.1)' }
+            }
+          }
+        }
+      }
+    }
   </script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    body {
-      font-family: 'Rajdhani', sans-serif;
-      background: #050505;
-      color: #e2e8f0;
-      overflow-x: hidden;
+    :root {
+      color-scheme: dark;
     }
 
-    .glass {
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      background: rgba(10, 10, 15, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+    body {
+      background-color: #050505;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 40%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      color: #fff;
     }
 
     ::-webkit-scrollbar {
-      width: 4px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-track {
@@ -91,12 +85,18 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: rgba(168, 85, 247, 0.2);
-      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(168, 85, 247, 0.4);
+      background: rgba(168, 85, 247, 0.5);
+    }
+
+    .glass {
+      background: rgba(10, 10, 15, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
 
     .progress-bar {
@@ -130,7 +130,6 @@
       border-color: rgba(168, 85, 247, 0.3);
     }
 
-    /* JJK Specific: Cursed Energy Aura */
     .aura-active {
       position: relative;
     }
@@ -179,9 +178,9 @@
 
     // ==================== TOAST ====================
     const Toast = ({ toasts }) => html`
-        <div className="fixed bottom-6 right-6 z-[100] space-y-3 w-full max-w-xs transition-all">
+        <div className="fixed bottom-6 right-6 z-[100] space-y-3 w-full max-w-xs transition-all pointer-events-none">
             ${toasts.map(t => html`
-                <div key=${t.id} className="toast toast-${t.type} animate-slide-up flex items-center gap-3">
+                <div key=${t.id} className="toast toast-${t.type} animate-slide-up flex items-center gap-3 pointer-events-auto">
                     <div className="shrink-0 w-2 h-2 rounded-full bg-white opacity-80 shadow-[0_0_8px_white]"></div>
                     ${t.msg}
                 </div>`)}
@@ -199,23 +198,123 @@
       List: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
       Clock: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
       Bolt: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
-      Shield: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
+      Shield: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+      Terminal: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>`,
+      Layers: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+      X: p => html`<svg ...${p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+    };
+
+    // ==================== SEARCH MODAL ====================
+    const SearchModal = ({ isOpen, onClose, scripts, onAction }) => {
+      const inputRef = useRef(null);
+      const [q, setQ] = useState('');
+
+      useEffect(() => {
+        if (isOpen) {
+          setTimeout(() => inputRef.current?.focus(), 50);
+          setQ('');
+        }
+      }, [isOpen]);
+
+      if (!isOpen) return null;
+
+      const filtered = q.trim() === '' ? [] : scripts.filter(s =>
+        s.name.toLowerCase().includes(q.toLowerCase()) ||
+        (s.area || '').toLowerCase().includes(q.toLowerCase())
+      );
+
+      return html`
+        <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] p-6" onClick=${onClose}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md"></div>
+            <div className="w-full max-w-2xl bg-jjk-panel border border-jjk-purple/40 rounded-3xl animate-slide-up relative z-10 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.15)] flex flex-col max-h-[70vh]" onClick=${e => e.stopPropagation()}>
+                <div className="flex items-center bg-white/5 border-b border-white/10 p-5 shrink-0">
+                    <${I.Search} className="text-jjk-purple mr-4" width=${22} />
+                    <input 
+                        ref=${inputRef} 
+                        value=${q} 
+                        onChange=${e => setQ(e.target.value)} 
+                        placeholder="Pesquisar por nome do script ou área..." 
+                        className="bg-transparent border-none outline-none w-full text-white font-tech tracking-wider text-lg placeholder:text-jjk-muted/50" 
+                    />
+                    <button onClick=${onClose} className="text-jjk-muted hover:text-white bg-white/5 p-2 rounded-xl transition-colors"><${I.X} width=${18} /></button>
+                </div>
+                
+                <div className="overflow-y-auto p-3 flex-1">
+                   ${q.trim() === '' ? html`
+                      <div className="p-12 text-center text-jjk-muted/50 font-mono text-xs uppercase tracking-widest flex flex-col items-center gap-3">
+                          <${I.Search} width=${32} className="opacity-50" />
+                          Digite algo para invocar a busca global
+                      </div>
+                   ` : filtered.length === 0 ? html`
+                      <div className="p-12 text-center text-jjk-muted font-mono text-xs uppercase tracking-widest flex flex-col items-center gap-3 text-jjk-red/70">
+                          <${I.Shield} width=${32} className="opacity-50" />
+                          Nenhuma técnica encontrada no Domínio
+                      </div>
+                   ` : filtered.map(s => html`
+                      <div key=${s.name} className="flex justify-between items-center p-3 hover:bg-white/5 rounded-xl cursor-default group border border-transparent hover:border-white/5 transition-all mb-1">
+                          <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-lg flex items-center justify-center ${s.status === 'running' ? 'bg-jjk-purple text-black animate-pulse' : 'bg-white/5 text-jjk-muted'}">
+                                 <${s.status === 'running' ? I.Bolt : I.Shield} width=${18} />
+                              </div>
+                              <div>
+                                  <div className="font-bold text-white uppercase text-sm font-tech tracking-wider group-hover:text-jjk-purple transition-colors">${s.name}</div>
+                                  <div className="text-[10px] font-mono text-jjk-muted flex items-center gap-2 mt-0.5">
+                                      <span className="truncate max-w-[200px]">${s.area || 'Diversos'}</span>
+                                      <span className="opacity-30">|</span>
+                                      <span className=${s.status === 'running' ? 'text-jjk-purple font-bold' : s.status === 'error' ? 'text-jjk-red' : ''}>${s.status.toUpperCase()}</span>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="shrink-0 flex gap-2">
+                              ${s.status === 'running' ? html`
+                                 <button onClick=${(e) => { e.stopPropagation(); onAction('kill', { name: s.name }); onClose(); }} className="text-xs bg-jjk-red/10 border border-jjk-red/30 text-jjk-red px-4 py-2 rounded-xl hover:bg-jjk-red hover:text-white font-bold tracking-widest">INTERROMPER</button>
+                              `: html`
+                                 <button disabled=${!s.is_active} onClick=${(e) => { e.stopPropagation(); onAction('run', { name: s.name }); onClose(); }} className="text-xs bg-jjk-blue/10 border border-jjk-blue/30 text-jjk-blue px-4 py-2 rounded-xl hover:bg-jjk-blue hover:text-white disabled:opacity-30 font-bold tracking-widest disabled:cursor-not-allowed">EXECUTAR</button>
+                              `}
+                          </div>
+                      </div>
+                   `)}
+                </div>
+                <div className="bg-black/40 p-3 text-[9px] font-mono text-center text-jjk-muted/50 uppercase border-t border-white/5 shrink-0">
+                    Pressione <kbd className="bg-white/10 px-1.5 py-0.5 rounded ml-1 mr-1">ESC</kbd> para fechar
+                </div>
+            </div>
+        </div>
+      `;
     };
 
     // ==================== APP ====================
     function App() {
       const [data, setData] = useState(null);
       const [view, setView] = useState('grid');
-      const [search, setSearch] = useState('');
       const [toasts, setToasts] = useState([]);
       const [modal, setModal] = useState(false);
       const [about, setAbout] = useState(null);
+
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [selectedArea, setSelectedArea] = useState('ALL');
+      const [searchModalOpen, setSearchModalOpen] = useState(false);
+      const [serverLog, setServerLog] = useState('');
+      const logContainerRef = useRef(null);
 
       const addToast = (msg, type = 'info') => {
         const id = Date.now();
         setToasts(t => [...t, { id, msg, type }]);
         setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000);
       };
+
+      // Search Modal hotkey
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+            e.preventDefault();
+            setSearchModalOpen(true);
+          }
+          if (e.key === 'Escape') setSearchModalOpen(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, []);
 
       // Socket logic
       useEffect(() => {
@@ -224,11 +323,33 @@
         socket.on('disconnect', () => addToast('Sinal perdido com o Domínio...', 'error'));
         socket.on('status_update', (d) => setData(d));
 
-        // Initial fetch
         fetch('/api/status').then(r => r.json()).then(d => setData(d));
-
         return () => socket.disconnect();
       }, []);
+
+      // Monitor Log fetch
+      useEffect(() => {
+        let interval;
+        if (activeTab === 'monitor') {
+          const fetchLog = async () => {
+            try {
+              const r = await fetch('/api/server-log');
+              const d = await r.json();
+              setServerLog(d.log || '--- FIM DOS REGISTROS ---');
+            } catch (e) { }
+          };
+          fetchLog();
+          interval = setInterval(fetchLog, 3000);
+        }
+        return () => clearInterval(interval);
+      }, [activeTab]);
+
+      // Scroll log to bottom when updated
+      useEffect(() => {
+        if (logContainerRef.current && activeTab === 'monitor') {
+          logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+        }
+      }, [serverLog, activeTab]);
 
       const handleAction = async (endpoint, payload) => {
         try {
@@ -253,169 +374,239 @@
         } catch (e) { addToast('Erro ao ler selos de segurança', 'error'); }
       };
 
-      const filteredScripts = useMemo(() => {
-        if (!data?.scripts) return [];
-        const q = search.toLowerCase();
-        return data.scripts.filter(s =>
-          s.name.toLowerCase().includes(q) || (s.area || '').toLowerCase().includes(q)
-        );
-      }, [data, search]);
+      const allScripts = data?.scripts || [];
+      const areaNames = useMemo(() => {
+        const areas = new Set(allScripts.map(s => s.area || 'Diversos'));
+        return Array.from(areas).sort();
+      }, [allScripts]);
 
-      const scriptsByArea = useMemo(() => {
+      const filteredByArea = useMemo(() => {
+        if (selectedArea === 'ALL') return allScripts;
+        return allScripts.filter(s => (s.area || 'Diversos') === selectedArea);
+      }, [allScripts, selectedArea]);
+
+      const scriptsByAreaDisplay = useMemo(() => {
         const areas = {};
-        filteredScripts.forEach(s => {
+        filteredByArea.forEach(s => {
           const a = s.area || 'Diversos';
           if (!areas[a]) areas[a] = [];
           areas[a].push(s);
         });
         return Object.entries(areas).sort((a, b) => a[0].localeCompare(b[0]));
-      }, [filteredScripts]);
+      }, [filteredByArea]);
 
       if (!data) return html`
-            <div className="h-screen flex flex-col items-center justify-center font-tech tracking-[0.5em] text-jjk-purple">
+            <div className="h-screen flex flex-col items-center justify-center font-tech tracking-[0.5em] text-jjk-purple bg-jjk-bg">
                 <div className="w-16 h-16 border-t-4 border-jjk-purple rounded-full animate-spin mb-8"></div>
                 INVOCANDO DOMÍNIO...
             </div>`;
 
       return html`
-            <div className="min-h-screen flex flex-col">
+            <div className="flex h-screen overflow-hidden bg-jjk-bg text-white font-body">
                 <${Toast} toasts=${toasts} />
-                
-                <!-- HEADER -->
-                <header className="h-20 glass sticky top-0 z-50 px-8 flex items-center justify-between border-b border-jjk-purple/20">
-                    <div className="flex items-center gap-4">
+                <${SearchModal} isOpen=${searchModalOpen} onClose=${() => setSearchModalOpen(false)} scripts=${allScripts} onAction=${handleAction} />
+
+                <!-- SIDEBAR -->
+                <aside className="w-64 shrink-0 glass border-r border-jjk-purple/20 flex flex-col z-50 shadow-2xl">
+                    <div className="h-20 flex px-6 items-center border-b border-white/5 shrink-0 gap-4">
                         <div className="w-10 h-10 bg-jjk-purple rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.5)]">
-                            <${I.Bolt} className="text-black" width=${24} />
+                            <${I.Levels || I.Bolt} className="text-black" width=${24} />
                         </div>
                         <div>
-                            <h1 className="text-xl font-black font-tech tracking-wider jjk-title uppercase">
-                                Servidor <span className="text-jjk-purple">Agendamentos</span>
+                            <h1 className="text-sm font-black font-tech tracking-wider jjk-title uppercase text-white">
+                                Servidor <span className="text-jjk-purple block text-xs">Agendamentos</span>
                             </h1>
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-jjk-muted font-mono leading-none">Célula Python • Expansão de Domínio</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <button onClick=${() => handleAction('reload', {})} className="btn bg-jjk-panel border border-jjk-purple/30 p-2.5 rounded-xl text-jjk-purple hover:bg-jjk-purple hover:text-black transition-all group" title="Recarregar Selos">
-                            <${I.Refresh} width=${18} className="group-hover:rotate-180 transition-transform duration-500" />
+                    <!-- Main Navigation -->
+                    <div className="p-4 border-b border-white/5 space-y-2 shrink-0">
+                        <button 
+                            onClick=${() => setActiveTab('dashboard')} 
+                            className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl font-tech text-xs tracking-widest font-bold transition-all ${activeTab === 'dashboard' ? 'bg-jjk-purple text-black shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-jjk-muted hover:bg-white/5 hover:text-white'}">
+                            <${I.Layout} width=${18} className=${activeTab === 'dashboard' ? 'text-black' : 'text-jjk-purple'} />
+                            DASHBOARD
                         </button>
-                        <button onClick=${openAbout} className="btn bg-jjk-panel border border-white/10 p-2.5 rounded-xl text-jjk-muted hover:text-white transition-all" title="Sobre o Domínio">
-                            <${I.Info} width=${18} />
+                        <button 
+                            onClick=${() => setActiveTab('monitor')} 
+                            className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl font-tech text-xs tracking-widest font-bold transition-all ${activeTab === 'monitor' ? 'bg-jjk-purple text-black shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-jjk-muted hover:bg-white/5 hover:text-white'}">
+                            <${I.Terminal} width=${18} className=${activeTab === 'monitor' ? 'text-black' : 'text-jjk-blue'} />
+                            MONITOR
+                        </button>
+                        <button 
+                            onClick=${() => setSearchModalOpen(true)} 
+                            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl font-tech text-xs tracking-widest font-bold transition-all text-jjk-muted hover:bg-white/5 hover:text-white group border border-dashed border-white/10 mt-2">
+                            <div className="flex items-center gap-4">
+                                <${I.Search} width=${18} className="text-jjk-muted group-hover:text-white" />
+                                BUSCAR
+                            </div>
+                            <span className="text-[9px] font-mono opacity-50 border border-white/20 rounded px-1 group-hover:bg-white/10">CTRL+F</span>
                         </button>
                     </div>
-                </header>
 
-                <!-- STATS BAR -->
-                <div className="p-8 grid grid-cols-2 md:grid-cols-5 gap-4">
-                    ${[
-          { label: 'Total Scripts', val: data.total_scripts, clr: 'text-white' },
-          { label: 'Ativos', val: data.active_scripts, clr: 'text-jjk-blue' },
-          { label: 'Rodando', val: data.running_count, clr: 'text-jjk-purple', pulse: data.running_count > 0 },
-          { label: 'Na Fila', val: data.queued_count, clr: 'text-jjk-gold' },
-          { label: 'Hora Servidor', val: data.server_time, clr: 'text-white', mono: true }
-        ].map(s => html`
-                        <div key=${s.label} className="jjk-stat-card glass p-4 rounded-2xl border-l-4 ${s.pulse ? 'border-jjk-purple animate-aura-purple' : 'border-white/10'}">
-                            <div className="text-[10px] uppercase tracking-widest text-jjk-muted font-bold mb-1">${s.label}</div>
-                            <div className="text-2xl font-black ${s.clr} ${s.mono ? 'font-mono' : 'font-tech'}">${s.val}</div>
+                    <!-- Area Filters -->
+                    <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                        <div className="text-[10px] font-mono text-jjk-muted/50 uppercase tracking-[0.2em] mb-4 pl-2 flex items-center gap-2">
+                           <${I.Layers} width=${14} /> Filtro de Domínios
                         </div>
-                    `)}
-                </div>
+                        <button 
+                            className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all tracking-wider font-body cursor-pointer flex justify-between items-center ${selectedArea === 'ALL' ? 'bg-jjk-purple/10 text-jjk-purple border border-jjk-purple/30' : 'text-jjk-muted hover:bg-white/5 hover:text-white border border-transparent'}" 
+                            onClick=${() => setSelectedArea('ALL')}>
+                            <span className="truncate">TODOS OS SCRIPTs</span>
+                            <span className="text-[9px] font-mono opacity-50 bg-white/5 px-2 py-0.5 rounded-full">${allScripts.length}</span>
+                        </button>
+                        ${areaNames.map(a => {
+        const count = allScripts.filter(s => (s.area || 'Diversos') === a).length;
+        return html`
+                            <button 
+                                key=${a}
+                                className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all tracking-wider font-body cursor-pointer flex justify-between items-center ${selectedArea === a ? 'bg-jjk-blue/10 text-jjk-blue border border-jjk-blue/30' : 'text-jjk-muted hover:bg-white/5 hover:text-white border border-transparent'}" 
+                                onClick=${() => setSelectedArea(a)}
+                                title=${a}>
+                                <span className="truncate pr-2">${a}</span>
+                                <span className="text-[9px] font-mono opacity-50 bg-white/5 px-2 py-0.5 rounded-full">${count}</span>
+                            </button>
+                        `})}
+                    </div>
+                </aside>
 
-                <!-- ACTIVE WORKFLOW -->
-                ${data.active_flow && html`
-                    <div className="mx-8 mb-8 p-6 rounded-2xl bg-gradient-to-r from-jjk-purple/20 via-jjk-panel to-jjk-blue/20 border border-jjk-purple/40 animate-aura-purple">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-jjk-purple animate-ping"></div>
-                                <h2 className="text-lg font-tech font-bold tracking-tight">FLUXO AMALDIÇOADO: <span className="text-jjk-purple uppercase">${data.active_flow.name}</span></h2>
-                            </div>
-                            <div className="text-xs font-mono text-jjk-muted uppercase tracking-widest">
-                                Passo ${data.active_flow.current_step + 1} de ${data.active_flow.total_steps}
-                            </div>
+                <!-- MAIN CONTENT AREA -->
+                <div className="flex-1 flex flex-col min-w-0 bg-black/40 relative">
+                    <!-- HEADER -->
+                    <header className="h-20 glass sticky top-0 z-40 px-8 flex items-center justify-between border-b border-jjk-purple/10 shrink-0">
+                        <div className="flex items-center gap-4 text-jjk-muted font-mono text-xs uppercase tracking-widest">
+                            <span className=${activeTab === 'dashboard' ? 'text-white font-bold' : ''}>DASHBOARD</span>
+                            <span className="opacity-30">/</span>
+                            <span className="text-jjk-purple truncate max-w-[300px]">${selectedArea === 'ALL' ? 'Visão Geral' : selectedArea}</span>
                         </div>
-                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-4">
-                            <div className="h-full progress-bar animate-progress" style=${{ width: `${((data.active_flow.current_step + 1) / data.active_flow.total_steps) * 100}%` }}></div>
+                        <div className="flex items-center gap-3">
+                            <button onClick=${() => handleAction('reload', {})} className="btn bg-jjk-panel border border-jjk-purple/30 p-2.5 rounded-xl text-jjk-purple hover:bg-jjk-purple hover:text-black transition-all group" title="Recarregar Selos Excel">
+                                <${I.Refresh} width=${18} className="group-hover:rotate-180 transition-transform duration-500" />
+                            </button>
+                            <button onClick=${openAbout} className="btn bg-jjk-panel border border-white/10 p-2.5 rounded-xl text-jjk-muted hover:text-white transition-all" title="Sobre o Domínio">
+                                <${I.Info} width=${18} />
+                            </button>
                         </div>
-                        <div className="flex gap-2 flex-wrap">
-                            ${data.active_flow.scripts.map((s, i) => html`
-                                <span key=${s} className="px-3 py-1 rounded-lg text-[10px] font-mono border transition-all ${i === data.active_flow.current_step ? 'bg-jjk-purple text-black border-jjk-purple font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)]' :
-            i < data.active_flow.current_step ? 'bg-jjk-purple/10 text-jjk-purple/60 border-jjk-purple/20' : 'bg-transparent text-jjk-muted border-white/10'
-          }">${s}</span>
+                    </header>
+
+                    <div className="flex-1 overflow-y-auto relative p-8">
+                        ${activeTab === 'dashboard' ? html`
+                            <!-- STATS BAR -->
+                            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                                ${[
+            { label: 'Total Scripts', val: data.total_scripts, clr: 'text-white' },
+            { label: 'Ativos', val: data.active_scripts, clr: 'text-jjk-blue' },
+            { label: 'Rodando', val: data.running_count, clr: 'text-jjk-purple', pulse: data.running_count > 0 },
+            { label: 'Na Fila', val: data.queued_count, clr: 'text-jjk-gold' },
+            { label: 'Hora Servidor', val: data.server_time, clr: 'text-white', mono: true }
+          ].map(s => html`
+                                    <div key=${s.label} className="jjk-stat-card bg-jjk-panel p-4 rounded-2xl border-l-4 border-y border-r border-y-white/5 border-r-white/5 ${s.pulse ? 'border-l-jjk-purple animate-aura-purple' : 'border-l-white/10'} hover:bg-white/5 transition-colors">
+                                        <div className="text-[10px] uppercase tracking-widest text-jjk-muted font-bold mb-1">${s.label}</div>
+                                        <div className="text-2xl font-black ${s.clr} ${s.mono ? 'font-mono' : 'font-tech'}">${s.val}</div>
+                                    </div>
+                                `)}
+                            </div>
+
+                            <!-- ACTIVE WORKFLOW -->
+                            ${data.active_flow && html`
+                                <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-jjk-purple/20 via-jjk-panel to-jjk-blue/20 border border-jjk-purple/40 animate-aura-purple relative overflow-hidden">
+                                    <div className="flex justify-between items-center mb-4 relative z-10">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 rounded-full bg-jjk-purple animate-ping"></div>
+                                            <h2 className="text-lg font-tech font-bold tracking-tight">FLUXO AMALDIÇOADO: <span className="text-jjk-purple uppercase">${data.active_flow.name}</span></h2>
+                                        </div>
+                                        <div className="text-xs font-mono text-jjk-muted uppercase tracking-widest">
+                                            Passo ${data.active_flow.current_step + 1} de ${data.active_flow.total_steps}
+                                        </div>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mb-5 relative z-10">
+                                        <div className="h-full progress-bar animate-progress" style=${{ width: `${((data.active_flow.current_step + 1) / data.active_flow.total_steps) * 100}%` }}></div>
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap relative z-10">
+                                        ${data.active_flow.scripts.map((s, i) => html`
+                                            <span key=${s} className="px-3 py-1.5 rounded-lg text-[10px] font-mono border transition-all ${i === data.active_flow.current_step ? 'bg-jjk-purple text-black border-jjk-purple font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)]' :
+              i < data.active_flow.current_step ? 'bg-jjk-purple/10 text-jjk-purple/60 border-jjk-purple/20' : 'bg-black/40 text-jjk-muted border-white/10'
+            }">${s}</span>
+                                        `)}
+                                    </div>
+                                </div>
+                            `}
+
+                            <!-- VIEW TOGGLE -->
+                            <div className="mb-6 flex items-center justify-end gap-6">
+                                <div className="flex bg-jjk-panel p-1 rounded-2xl border border-white/5">
+                                    <button onClick=${() => setView('grid')} className="p-2.5 rounded-xl transition-all ${view === 'grid' ? 'bg-jjk-purple text-black' : 'text-jjk-muted hover:text-white'}">
+                                        <${I.Layout} width=${18} />
+                                    </button>
+                                    <button onClick=${() => setView('list')} className="p-2.5 rounded-xl transition-all ${view === 'list' ? 'bg-jjk-purple text-black' : 'text-jjk-muted hover:text-white'}">
+                                        <${I.List} width=${18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- SCRIPTS LIST -->
+                            ${scriptsByAreaDisplay.length === 0 ? html`
+                                <div className="h-64 flex flex-col items-center justify-center text-jjk-muted opacity-30 select-none bg-jjk-panel rounded-3xl border border-white/5">
+                                    <${I.Shield} width=${64} className="mb-4" />
+                                    <p className="font-tech tracking-[0.5em] text-xs">NENHUMA TÉCNICA NESTE DOMÍNIO</p>
+                                </div>
+                            ` : scriptsByAreaDisplay.map(([area, scripts]) => html`
+                                <section key=${area} className="mb-10 last:mb-0">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <h2 className="text-[11px] font-black font-tech tracking-[0.4em] uppercase text-jjk-muted whitespace-nowrap">${area}</h2>
+                                        <div className="h-px w-full bg-gradient-to-r from-white/10 to-transparent"></div>
+                                        <span className="text-[10px] font-mono text-jjk-muted/50 whitespace-nowrap">${scripts.length} OBJETO(S)</span>
+                                    </div>
+                                    
+                                    <div className=${view === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "space-y-3"}>
+                                        ${scripts.map(s => html`<${ScriptItem} key=${s.name} script=${s} view=${view} onAction=${handleAction} />`)}
+                                    </div>
+                                </section>
                             `)}
-                        </div>
+                        ` : html`
+                            <!-- MONITOR TAB -->
+                            <div className="h-full flex flex-col bg-jjk-panel border border-white/10 rounded-2xl overflow-hidden shadow-2xl relative">
+                                <div className="h-12 border-b border-white/10 flex justify-between items-center px-6 bg-black/40 shrink-0">
+                                    <div className="flex gap-2">
+                                        <div className="w-3 h-3 rounded-full bg-jjk-red/80"></div>
+                                        <div className="w-3 h-3 rounded-full bg-jjk-gold/80"></div>
+                                        <div className="w-3 h-3 rounded-full bg-jjk-blue/80"></div>
+                                    </div>
+                                    <div className="text-[10px] font-mono uppercase tracking-widest text-jjk-muted">
+                                        Logs do Orquestrador Principal
+                                    </div>
+                                    <div className="w-16"></div> <!-- spacer -->
+                                </div>
+                                <div ref=${logContainerRef} className="flex-1 p-6 overflow-y-auto font-mono text-[11px] leading-relaxed text-[#00ff00] whitespace-pre cursor-text">
+                                    ${serverLog || 'Conectando ao terminal...'}
+                                </div>
+                            </div>
+                        `}
                     </div>
-                `}
 
-                <!-- CONTROLS -->
-                <div className="px-8 mb-6 flex items-center justify-between gap-6">
-                    <div className="relative flex-1 max-w-lg">
-                        <${I.Search} className="absolute left-4 top-1/2 -translate-y-1/2 text-jjk-muted" width=${18} />
-                        <input 
-                            type="text" 
-                            className="w-full bg-jjk-panel border border-white/5 rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-jjk-purple/50 focus:shadow-[0_0_20px_rgba(168,85,247,0.1)] transition-all font-body text-sm"
-                            placeholder="Pesquisar técnicas ou áreas amaldiçoadas..."
-                            value=${search}
-                            onChange=${e => setSearch(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex glass p-1 rounded-2xl border border-white/5">
-                        <button onClick=${() => setView('grid')} className="p-2.5 rounded-xl transition-all ${view === 'grid' ? 'bg-jjk-purple text-black' : 'text-jjk-muted hover:text-white'}">
-                            <${I.Layout} width=${18} />
-                        </button>
-                        <button onClick=${() => setView('list')} className="p-2.5 rounded-xl transition-all ${view === 'list' ? 'bg-jjk-purple text-black' : 'text-jjk-muted hover:text-white'}">
-                            <${I.List} width=${18} />
-                        </button>
-                    </div>
+                    <!-- FOOTER -->
+                    <footer className="h-12 border-t border-white/5 glass flex items-center justify-between px-8 text-[10px] font-mono tracking-widest text-jjk-muted gap-4 shrink-0">
+                        <div className="flex items-center gap-6">
+                            <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-jjk-blue animate-pulse shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div> RUNTIME ATIVO</span>
+                        </div>
+                        <div className="text-right uppercase">
+                            Célula Python Monitoração • C6 Bank
+                        </div>
+                    </footer>
                 </div>
-
-                <!-- MAIN -->
-                <main className="flex-1 px-8 pb-12">
-                    ${scriptsByArea.length === 0 ? html`
-                        <div className="h-64 flex flex-col items-center justify-center text-jjk-muted opacity-30 select-none">
-                            <${I.Shield} width=${64} className="mb-4" />
-                            <p className="font-tech tracking-[0.5em] text-xs">NENHUMA TÉCNICA ENCONTRADA</p>
-                        </div>
-                    ` : scriptsByArea.map(([area, scripts]) => html`
-                        <section key=${area} className="mb-10 last:mb-0">
-                            <div className="flex items-center gap-4 mb-6">
-                                <h2 className="text-[11px] font-black font-tech tracking-[0.4em] uppercase text-jjk-muted whitespace-nowrap">${area}</h2>
-                                <div className="h-px w-full bg-gradient-to-r from-white/10 to-transparent"></div>
-                                <span className="text-[10px] font-mono text-jjk-muted/50 whitespace-nowrap">${scripts.length} OBJETO(S)</span>
-                            </div>
-                            
-                            <div className=${view === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "space-y-3"}>
-                                ${scripts.map(s => html`<${ScriptItem} key=${s.name} script=${s} view=${view} onAction=${handleAction} />`)}
-                            </div>
-                        </section>
-                    `)}
-                </main>
-
-                <!-- FOOTER -->
-                <footer className="p-8 border-t border-white/5 glass flex flex-col md:flex-row items-center justify-between text-[11px] font-mono tracking-widest text-jjk-muted gap-4">
-                    <div className="flex items-center gap-6">
-                        <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-jjk-blue animate-pulse shadow-[0_0_8px_rgba(14,165,233,0.5)]"></div> DOMÍNIO ONLINE</span>
-                        <span className="hidden sm:inline opacity-30">|</span>
-                        <span className="flex items-center gap-2">${data.running_count} RODANDO</span>
-                        <span className="flex items-center gap-2">${data.queued_count} NA FILA</span>
-                    </div>
-                    <div className="text-right">
-                        <div>Célula Python Monitoração • C6 Bank</div>
-                        <div className="opacity-40 mt-1 uppercase text-[9px]">Localhost Only • LGPD Compliant • PID Isolated</div>
-                    </div>
-                </footer>
 
                 <!-- MODAL ABOUT -->
                 ${modal && about && html`
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick=${() => setModal(false)}>
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6" onClick=${() => setModal(false)}>
                         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-                        <div className="glass p-8 rounded-3xl w-full max-w-2xl relative z-10 border border-jjk-purple/30 animate-aura-purple max-h-[85vh] overflow-y-auto" onClick=${e => e.stopPropagation()}>
+                        <div className="bg-jjk-panel border border-jjk-purple/30 p-8 rounded-3xl w-full max-w-2xl relative z-10 animate-aura-purple max-h-[85vh] overflow-y-auto shadow-2xl" onClick=${e => e.stopPropagation()}>
                             <div className="flex justify-between items-start mb-6">
                                 <div>
                                     <h2 className="text-2xl font-black font-tech jjk-title tracking-wider text-white">SELOS DO <span className="text-jjk-purple">DOMÍNIO</span></h2>
                                     <p className="text-xs font-mono text-jjk-purple/60 tracking-widest uppercase mt-1">Versão ${about.version}</p>
                                 </div>
                                 <button onClick=${() => setModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-all text-jjk-muted hover:text-white">
-                                    <${I.Refresh} width=${20} className="rotate-45" />
+                                    <${I.X} width=${20} />
                                 </button>
                             </div>
 
@@ -426,9 +617,9 @@
                                     <${I.Shield} width=${14} /> Protocolos de Segurança
                                 </h4>
                                 <ul className="text-[11px] grid gap-2">
-                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong>Rede:</strong> ${about.security.network}</li>
-                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong>Headers:</strong> ${about.security.headers}</li>
-                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong>PIDs:</strong> ${about.security.data}</li>
+                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong className="text-white font-tech tracking-wider">REDE:</strong> <span className="text-jjk-muted">${about.security.network}</span></li>
+                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong className="text-white font-tech tracking-wider">HEADERS:</strong> <span className="text-jjk-muted">${about.security.headers}</span></li>
+                                    <li className="flex items-center gap-3"><span className="text-jjk-purple font-bold">›</span> <strong className="text-white font-tech tracking-wider">PIDs:</strong> <span className="text-jjk-muted">${about.security.data}</span></li>
                                 </ul>
                             </div>
 
@@ -441,7 +632,7 @@
 
                             <div className="flex justify-between items-end border-t border-white/5 pt-6 text-[10px] font-mono uppercase tracking-tighter text-jjk-muted">
                                 <div>Autor: ${about.author}</div>
-                                <div className="text-right">Built with FastAPI • psutil • WebSocket</div>
+                                <div className="text-right">Built with Flask • psutil • Socket.IO</div>
                             </div>
                         </div>
                     </div>
@@ -454,42 +645,41 @@
       const isRun = s.status === 'running';
       const isQue = s.status === 'queued';
       const isErr = s.status === 'error';
-      const isIdle = s.status === 'idle';
       const isAct = s.is_active;
 
       if (view === 'grid') {
         return html`
-                <div className="card glass p-6 rounded-3xl border border-white/5 relative flex flex-col h-full transition-all duration-300 hover:border-jjk-purple/30 group ${isRun ? 'animate-aura-purple aura-active border-jjk-purple/40 ring-1 ring-jjk-purple/20' : ''} ${!isAct ? 'opacity-40 grayscale' : ''}">
+                <div className="bg-jjk-panel p-6 rounded-3xl border border-white/5 relative flex flex-col h-full transition-all duration-300 hover:border-jjk-purple/30 group hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] ${isRun ? 'animate-aura-purple aura-active border-jjk-purple/40 ring-1 ring-jjk-purple/20' : ''} ${!isAct ? 'opacity-40 grayscale' : ''}">
                     <!-- Progress top bit -->
                     ${isRun && html`<div className="absolute top-0 left-0 right-0 h-1 progress-bar animate-progress rounded-t-3xl overflow-hidden"></div>`}
                     
                     <div className="flex justify-between items-start mb-6">
-                        <div className="flex flex-col">
-                           <span className="text-[9px] font-black uppercase tracking-[0.3em] font-mono leading-none mb-1 shadow-sm ${isRun ? 'text-jjk-purple animate-pulse' :
+                        <div className="flex flex-col min-w-0 pr-2">
+                           <span className="text-[9px] font-black uppercase tracking-[0.3em] font-mono leading-none mb-1.5 shadow-sm ${isRun ? 'text-jjk-purple animate-pulse' :
             isErr ? 'text-jjk-red' :
               isQue ? 'text-jjk-gold' : 'text-jjk-blue'
           }">${s.status}</span>
-                           <h3 className="text-base font-bold font-tech text-white leading-tight uppercase truncate max-w-[180px]" title=${s.name}>${s.name}</h3>
+                           <h3 className="text-sm font-bold font-tech text-white leading-tight uppercase truncate" title=${s.name}>${s.name}</h3>
                         </div>
                         ${isRun && s.pid ? html`
-                            <div className="px-2 py-1 bg-jjk-blue/10 border border-jjk-blue/20 rounded-lg flex items-center gap-1.5 ">
+                            <div className="px-2 py-1 bg-jjk-blue/10 border border-jjk-blue/20 rounded-lg flex items-center gap-1.5 shrink-0">
                                 <div className="w-1.5 h-1.5 rounded-full bg-jjk-blue animate-ping"></div>
                                 <span className="text-[10px] font-mono text-jjk-blue font-bold">PID ${s.pid}</span>
                             </div>
                         ` : ''}
                     </div>
 
-                    <div className="space-y-2.5 flex-1 mb-6">
+                    <div className="space-y-2.5 flex-1 mb-6 bg-black/20 p-3 rounded-2xl border border-white/5">
                         <div className="flex items-center gap-3 text-jjk-muted">
                             <${I.Clock} width=${14} className="shrink-0 text-jjk-purple/60" />
                             <span className="text-[11px] font-mono uppercase truncate">${s.raw_slots?.length ? s.raw_slots.join(', ') + 'h' : 'Manual'}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-medium pt-2 border-t border-white/5">
-                            <span className="text-jjk-muted uppercase tracking-wider">PRÓX. EXEC</span>
+                            <span className="text-jjk-muted uppercase tracking-wider text-[9px]">Próx. Exec</span>
                             <span className="font-mono ${s.is_delayed ? 'text-jjk-red font-bold animate-pulse' : 'text-jjk-blue'}">${s.next_run_hour || '-'}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-medium">
-                            <span className="text-jjk-muted uppercase tracking-wider">EXECUÇÕES HOJE</span>
+                            <span className="text-jjk-muted uppercase tracking-wider text-[9px]">Runs Hoje</span>
                             <span className="font-mono text-white">${s.executions_today || '0/0'}</span>
                         </div>
                     </div>
@@ -501,7 +691,7 @@
                                 INTERROMPER
                             </button>
                         ` : html`
-                            <button onClick=${() => onAction('run', { name: s.name })} disabled=${!isAct} className="w-full h-11 bg-jjk-blue/10 border border-jjk-blue/20 text-jjk-blue font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-jjk-blue hover:text-white transition-all shadow-sm active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
+                            <button disabled=${!isAct} onClick=${() => onAction('run', { name: s.name })} className="w-full h-11 bg-jjk-blue/10 border border-jjk-blue/20 text-jjk-blue font-bold text-xs uppercase tracking-widest rounded-2xl hover:bg-jjk-blue hover:text-white transition-all shadow-sm active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
                                 EXECUTAR 
                             </button>
                         `}
@@ -511,13 +701,13 @@
       } else {
         // LIST VIEW
         return html`
-                <div className="glass p-3 rounded-2xl border transition-all duration-300 flex items-center justify-between group px-6 ${isRun ? 'border-jjk-purple/40 ring-1 ring-jjk-purple/20' : 'border-white/5'} ${!isAct ? 'opacity-40 grayscale' : ''}">
+                <div className="bg-jjk-panel p-3 rounded-2xl border transition-all duration-300 flex items-center justify-between group px-6 hover:bg-white/5 ${isRun ? 'border-jjk-purple/40 ring-1 ring-jjk-purple/20' : 'border-white/5'} ${!isAct ? 'opacity-40 grayscale' : ''}">
                     <div className="flex items-center gap-6 min-w-0 flex-1">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg ${isRun ? 'bg-jjk-purple text-black' : 'bg-white/5 text-jjk-muted'}">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isRun ? 'bg-jjk-purple text-black' : 'bg-white/5 text-jjk-muted'}">
                             <${isRun ? I.Bolt : I.Shield} width=${16} />
                         </div>
                         <div className="min-w-0">
-                            <h4 className="font-bold text-sm text-white uppercase truncate">${s.name}</h4>
+                            <h4 className="font-bold text-sm font-tech text-white uppercase truncate">${s.name}</h4>
                             <div className="text-[10px] font-mono text-jjk-muted flex items-center gap-3">
                                 <span>CRON: ${s.raw_slots?.length ? s.raw_slots.join(', ') + 'h' : 'MANUAL'}</span>
                                 <span className="opacity-30">|</span>
@@ -528,19 +718,19 @@
 
                     <div className="flex items-center gap-6 shrink-0 ml-4">
                         ${isRun && html`
-                            <div className="font-mono text-jjk-blue text-xs flex items-center gap-2">
+                            <div className="font-mono text-jjk-blue text-xs flex items-center gap-2 bg-jjk-blue/10 px-2.5 py-1 rounded-lg">
                                 <${I.Clock} width=${12} />
                                 ${s.duration_seconds}s
                             </div>
                         `}
                         <div className="flex gap-2 min-w-[120px] justify-end">
                             ${isRun ? html`
-                                <button onClick=${() => onAction('kill', { name: s.name })} className="p-2.5 bg-jjk-red/10 border border-jjk-red/30 text-jjk-red rounded-xl hover:bg-jjk-red hover:text-white transition-all shadow-sm">
-                                    <${I.Stop} width=${14} />
+                                <button onClick=${() => onAction('kill', { name: s.name })} className="px-4 py-2 bg-jjk-red/10 border border-jjk-red/30 text-jjk-red rounded-xl hover:bg-jjk-red hover:text-white transition-all shadow-sm font-bold text-[10px] tracking-widest">
+                                    KILL
                                 </button>
                             ` : html`
-                                <button onClick=${() => onAction('run', { name: s.name })} disabled=${!isAct} className="p-2.5 bg-jjk-panel border border-white/5 text-jjk-blue rounded-xl hover:bg-jjk-blue hover:text-white transition-all shadow-sm disabled:opacity-10">
-                                    <${I.Play} width=${14} />
+                                <button disabled=${!isAct} onClick=${() => onAction('run', { name: s.name })} className="px-4 py-2 bg-jjk-blue/10 border border-jjk-blue/30 text-jjk-blue rounded-xl hover:bg-jjk-blue hover:text-white transition-all shadow-sm disabled:opacity-10 font-bold text-[10px] tracking-widest">
+                                    RUN
                                 </button>
                             `}
                         </div>

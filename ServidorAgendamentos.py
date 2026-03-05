@@ -787,6 +787,14 @@ def api_slog(name: str):
             return jsonify({"log": "".join(f.readlines()[-150:])})
     except: return jsonify({"log": "(Erro)"})
 
+@app.route("/api/server-log")
+def api_srvlog():
+    if not LOG_FILE.exists(): return jsonify({"log": "(Sem log)"})
+    try:
+        with open(str(LOG_FILE), "r", encoding="utf-8", errors="replace") as f:
+            return jsonify({"log": "".join(f.readlines()[-200:])})
+    except: return jsonify({"log": "(Erro ao ler log do orquestrador)"})
+
 @app.route("/api/workflows", methods=["GET"])
 def api_wfl(): return jsonify(orch.wf_list())
 
