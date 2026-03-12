@@ -1,5 +1,5 @@
 {
-  "name": "C6 Bank Cron Server",
+  "name": "Abobi Cron Server",
   "description": "A Python Cron Scheduling Server with a React frontend.",
   "requestFramePermissions": []
 }
